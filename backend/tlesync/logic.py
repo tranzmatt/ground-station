@@ -20,10 +20,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import requests
+from sqlalchemy import select
 
 import crud
 from common.common import *  # noqa: F401,F403
 from common.exceptions import SynchronizationErrorMainTLESource
+from db.models import Satellites
 from handlers.entities.transmitterimport import (
     import_gr_satellites_transmitters,
     import_satdump_transmitters,
@@ -409,6 +411,20 @@ async def synchronize_satellite_data_internal(dbsession, logger, emit_callback):
         count_transmitters = 0
         try:
             total_satellites = len(celestrak_list)
+            celestrak_norad_ids = {get_norad_id_from_tle(sat["line1"]) for sat in celestrak_list}
+
+            # Fetch manually-added satellites once; we'll enrich them with SATNOGS transmitters
+            # after normal TLE processing (for NORAD IDs not already covered by Celestrak data).
+            manual_satellites_result = await dbsession.execute(
+                select(Satellites).filter(Satellites.source == "manual")
+            )
+            manual_satellites = manual_satellites_result.scalars().all()
+            manual_satellites_by_norad = {sat.norad_id: sat for sat in manual_satellites}
+            manual_only_norad_ids = [
+                norad_id
+                for norad_id in manual_satellites_by_norad.keys()
+                if norad_id not in celestrak_norad_ids
+            ]
 
             # Pre-calculate total transmitters to ensure progress is accurate
             logger.info("Calculating expected transmitter count for progress tracking...")
@@ -418,9 +434,22 @@ async def synchronize_satellite_data_internal(dbsession, logger, emit_callback):
                 transmitters = get_transmitter_info_by_norad_id(norad_id, satnogs_transmitter_data)
                 total_transmitters_to_process += len(transmitters)
 
+            # Add expected transmitters for manually-added satellites that are outside
+            # the currently synchronized Celestrak set.
+            for norad_id in manual_only_norad_ids:
+                transmitters = get_transmitter_info_by_norad_id(norad_id, satnogs_transmitter_data)
+                total_transmitters_to_process += len(transmitters)
+
             logger.info(
                 f"Expected to process {total_transmitters_to_process} transmitters in total"
             )
+            if manual_only_norad_ids:
+                logger.info(
+                    "Found %s manual-only satellites to enrich with SATNOGS transmitters",
+                    len(manual_only_norad_ids),
+                )
+
+            processed_transmitter_uuids = set(existing_data["transmitter_uuids"])
 
             # Now process satellites
             for i, sat in enumerate(celestrak_list):
@@ -486,7 +515,7 @@ async def synchronize_satellite_data_internal(dbsession, logger, emit_callback):
                     transmitter_uuid = transmitter_info.get("uuid", None)
 
                     # Check if this is a new transmitter
-                    is_new_transmitter = transmitter_uuid not in existing_data["transmitter_uuids"]
+                    is_new_transmitter = transmitter_uuid not in processed_transmitter_uuids
 
                     # Create transmitter object and get comparison data
                     transmitter, transmitter_data_for_comparison = (
@@ -527,6 +556,7 @@ async def synchronize_satellite_data_internal(dbsession, logger, emit_callback):
 
                     # commit session
                     await dbsession.commit()
+                    processed_transmitter_uuids.add(transmitter_uuid)
 
                     # If this is a new transmitter, add it to the newly added list
                     if is_new_transmitter:
@@ -535,6 +565,62 @@ async def synchronize_satellite_data_internal(dbsession, logger, emit_callback):
                                 "uuid": transmitter_uuid,
                                 "description": transmitter.description,
                                 "satellite_name": satellite.name,
+                                "norad_id": norad_id,
+                                "downlink_low": transmitter.downlink_low,
+                                "downlink_high": transmitter.downlink_high,
+                                "mode": transmitter.mode,
+                            }
+                        )
+
+            # Enrich manually-added satellites (that were not part of Celestrak list)
+            # with SATNOGS transmitter data from memory.
+            for norad_id in manual_only_norad_ids:
+                manual_satellite = manual_satellites_by_norad.get(norad_id)
+                satellite_name = manual_satellite.name if manual_satellite else f"NORAD {norad_id}"
+                satnogs_transmitter_info = get_transmitter_info_by_norad_id(
+                    norad_id, satnogs_transmitter_data
+                )
+
+                for transmitter_info in satnogs_transmitter_info:
+                    transmitter_uuid = transmitter_info.get("uuid", None)
+                    is_new_transmitter = transmitter_uuid not in processed_transmitter_uuids
+
+                    transmitter, transmitter_data_for_comparison = (
+                        create_transmitter_from_satnogs_data(transmitter_info)
+                    )
+                    count_transmitters += 1
+
+                    if total_transmitters_to_process > 0:
+                        progress_state = update_progress(
+                            "process_transmitters",
+                            count_transmitters,
+                            total_transmitters_to_process,
+                            f"Processing transmitter {count_transmitters}/{total_transmitters_to_process}",
+                        )
+                        sync_state["stats"]["transmitters_processed"] = count_transmitters
+                        sync_state_manager.set_state(sync_state)
+
+                    if not is_new_transmitter:
+                        detect_transmitter_modifications(
+                            transmitter_uuid,
+                            transmitter_data_for_comparison,
+                            existing_data["transmitters"],
+                            sync_state,
+                            satellite_name,
+                            norad_id,
+                            logger,
+                        )
+
+                    await dbsession.merge(transmitter)
+                    await dbsession.commit()
+                    processed_transmitter_uuids.add(transmitter_uuid)
+
+                    if is_new_transmitter:
+                        sync_state["newly_added"]["transmitters"].append(
+                            {
+                                "uuid": transmitter_uuid,
+                                "description": transmitter.description,
+                                "satellite_name": satellite_name,
                                 "norad_id": norad_id,
                                 "downlink_low": transmitter.downlink_low,
                                 "downlink_high": transmitter.downlink_high,

@@ -203,6 +203,7 @@ async def add_satellite(session: AsyncSession, data: dict) -> dict:
                 raise ValueError(f"Missing required field: {field}")
 
         now = datetime.now(timezone.utc)
+        data["source"] = data.get("source") or "manual"
         data["added"] = now
         data["updated"] = now
 

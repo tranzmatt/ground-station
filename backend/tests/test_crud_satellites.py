@@ -60,6 +60,7 @@ class TestSatellitesCRUD:
         assert result["error"] is None
         assert result["data"]["name"] == "ISS (ZARYA)"
         assert result["data"]["norad_id"] == 25544
+        assert result["data"]["source"] == "manual"
         assert result["data"]["status"] == "alive"
         assert "added" in result["data"]
         assert "updated" in result["data"]

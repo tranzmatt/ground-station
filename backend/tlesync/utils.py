@@ -326,6 +326,7 @@ def create_satellite_from_tle_data(sat, norad_id):
     return Satellites(
         norad_id=norad_id,
         name=sat["name"],
+        source="tlesync",
         name_other=None,
         alternative_name=None,
         image=None,

@@ -26,6 +26,7 @@ from tlesync.utils import (
     create_final_success_message,
     create_initial_sync_state,
     create_progress_tracker,
+    create_satellite_from_tle_data,
     detect_duplicate_satellites,
     get_norad_id_from_tle,
     get_norad_ids,
@@ -96,6 +97,22 @@ ISS (ZARYA)
         tle = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
         with pytest.raises(ValueError):
             get_norad_id_from_tle(tle)
+
+
+class TestCreateSatelliteFromTleData:
+    """Test cases for creating Satellites objects from TLE data."""
+
+    def test_create_satellite_sets_tlesync_source(self):
+        sat = {
+            "name": "ISS (ZARYA)",
+            "line1": "1 25544U 98067A   23109.65481637  .00012345  00000-0  21914-3 0  9997",
+            "line2": "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537",
+        }
+
+        satellite = create_satellite_from_tle_data(sat, 25544)
+
+        assert satellite.norad_id == 25544
+        assert satellite.source == "tlesync"
 
 
 class TestSimpleParse3le:

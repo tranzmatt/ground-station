@@ -121,6 +121,7 @@ class Satellites(Base):
     __tablename__ = "satellites"
     norad_id = Column(Integer, primary_key=True, nullable=False, unique=True)
     name = Column(String, nullable=False)
+    source = Column(String, nullable=False, default="manual", server_default="manual")
     name_other = Column(String, nullable=True)
     alternative_name = Column(String, nullable=True)
     image = Column(String, nullable=True)
