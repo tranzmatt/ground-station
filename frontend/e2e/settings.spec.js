@@ -128,14 +128,28 @@ test.describe('Preferences Persistence', () => {
 
     const themeSelect = page.locator('#theme-selector');
     await themeSelect.click();
-    await page.getByRole('option', { name: 'Terminal' }).click();
+    const allThemeOptions = page.getByRole('option');
+    const optionCount = await allThemeOptions.count();
+    let selectedThemeName = null;
+
+    for (let i = 0; i < optionCount; i++) {
+      const option = allThemeOptions.nth(i);
+      const optionName = (await option.innerText()).trim();
+      if (optionName && !/auto\s*\(system\)/i.test(optionName)) {
+        selectedThemeName = optionName;
+        await option.click();
+        break;
+      }
+    }
+
+    expect(selectedThemeName).not.toBeNull();
 
     await page.getByRole('button', { name: /save preferences|enregistrer/i }).click();
     await page.waitForTimeout(2000);
     await page.waitForLoadState('domcontentloaded');
 
     await themeSelect.click();
-    await expect(page.getByRole('option', { name: 'Terminal' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('option', { name: selectedThemeName })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Escape');
 
     await themeSelect.click();
