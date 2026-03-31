@@ -19,6 +19,8 @@ import { toast } from '../../utils/toast-with-timestamp.jsx';
 
 const useWaterfallStream = ({
     workerRef,
+    waterfallRendererMode = 'worker',
+    onDomTileFftData,
     targetFPSRef,
     playbackElapsedSecondsRef,
     playbackRemainingSecondsRef,
@@ -65,7 +67,7 @@ const useWaterfallStream = ({
     const fftDataOverflowLimit = 60;
 
     const cancelAnimations = useCallback(() => {
-        if (workerRef.current) {
+        if (waterfallRendererMode === 'worker' && workerRef.current) {
             workerRef.current.postMessage({ cmd: 'stop' });
         }
         if (animationFrameRef.current) {
@@ -76,7 +78,7 @@ const useWaterfallStream = ({
             cancelAnimationFrame(bandscopeAnimationFrameRef.current);
             bandscopeAnimationFrameRef.current = null;
         }
-    }, [workerRef]);
+    }, [workerRef, waterfallRendererMode]);
 
     useEffect(() => {
         // Note: sdr-config-error, sdr-error, sdr-config, and sdr-status are now handled
@@ -132,7 +134,11 @@ const useWaterfallStream = ({
             // Create a typed view over the incoming ArrayBuffer and transfer its buffer
             // to the worker to avoid structured-clone copying (zero-copy transfer).
             const floatArray = new Float32Array(binaryData);
-            if (workerRef.current) {
+            if (waterfallRendererMode === 'dom-tiles') {
+                if (onDomTileFftData) {
+                    onDomTileFftData(floatArray);
+                }
+            } else if (workerRef.current) {
                 // After this postMessage, floatArray.buffer becomes detached in the main thread.
                 // Do not reuse floatArray or its buffer hereafter.
                 workerRef.current.postMessage({
@@ -151,7 +157,7 @@ const useWaterfallStream = ({
             cancelAnimations();
             socket.off('sdr-fft-data');
         };
-    }, [socket, cancelAnimations, dispatch, workerRef]);
+    }, [socket, cancelAnimations, dispatch, workerRef, waterfallRendererMode, onDomTileFftData]);
 
     // Effect to handle cleanup when streaming stops (from parent handler or local stop)
     useEffect(() => {
@@ -207,7 +213,7 @@ const useWaterfallStream = ({
             }, (response) => {
                 if (response['success']) {
                     socket.emit('sdr_data', 'start-streaming', { selectedSDRId });
-                    if (workerRef.current) {
+                    if (waterfallRendererMode === 'worker' && workerRef.current) {
                         workerRef.current.postMessage({
                             cmd: 'start',
                             data: { fps: targetFPSRef.current }
@@ -216,7 +222,7 @@ const useWaterfallStream = ({
                 }
             });
         }
-    }, [isStreaming, dispatch, socket, selectedSDRId, centerFrequency, sampleRate, gain, fftSize, biasT, tunerAgc, rtlAgc, fftWindow, selectedAntenna, selectedOffsetValue, soapyAgc, fftAveraging, workerRef, targetFPSRef, getAudioState, initializeAudio]);
+    }, [isStreaming, dispatch, socket, selectedSDRId, centerFrequency, sampleRate, gain, fftSize, biasT, tunerAgc, rtlAgc, fftWindow, selectedAntenna, selectedOffsetValue, soapyAgc, fftAveraging, workerRef, targetFPSRef, getAudioState, initializeAudio, waterfallRendererMode]);
 
     const stopStreaming = useCallback(async () => {
         if (isStreaming) {

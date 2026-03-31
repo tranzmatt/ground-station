@@ -315,6 +315,31 @@ const PreferencesForm = () => {
                         </FormControl>
                     </Grid>
 
+                    {/* Waterfall Renderer Mode */}
+                    <Grid size={8} sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography>{t('preferences.waterfall_renderer_mode', 'Waterfall Renderer')}</Typography>
+                    </Grid>
+                    <Grid size={8}>
+                        <FormControl sx={{ minWidth: 200, marginTop: 1, marginBottom: 1 }} fullWidth variant="outlined"
+                                     disabled={isLoading}
+                                     size="small"
+                        >
+                            <InputLabel>{t('preferences.waterfall_renderer_mode', 'Waterfall Renderer')}</InputLabel>
+                            <Select
+                                value={getPreferenceValue('waterfall_renderer_mode') || 'worker'}
+                                onChange={handleChange('waterfall_renderer_mode')}
+                                label={t('preferences.waterfall_renderer_mode', 'Waterfall Renderer')}
+                                size="small">
+                                <MenuItem value="worker">
+                                    {t('preferences.waterfall_renderer_worker', 'Worker + OffscreenCanvas')}
+                                </MenuItem>
+                                <MenuItem value="dom-tiles">
+                                    {t('preferences.waterfall_renderer_dom_tiles', '2-Tile DOM Canvas')}
+                                </MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Grid>
+
                     {/* API Keys */}
                     <Grid size={16} sx={{ mt: 2 }}>
                         <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 1 }}>

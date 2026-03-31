@@ -99,6 +99,9 @@ import {
 } from './waterfall-utils.jsx';
 import { useWaterfallEventHandlers, useSnapshotHandlers } from './waterfall-events.jsx';
 import { getRotatorEventDisplay } from '../target/rotator-constants.js';
+import { createDomTileWaterfallRenderer } from './dom-tile-waterfall-renderer.js';
+import { drawBandscope as drawBandscopeModule } from './worker-modules/rendering.js';
+import { updateSmoothedFftData } from './worker-modules/smoothing.js';
 
 // Make a new worker
 export const createExternalWorker = () => {
@@ -126,11 +129,18 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     const dispatch = useDispatch();
     const { socket } = useSocket();
     const waterFallCanvasRef = useRef(null);
+    const waterFallTileCanvasARef = useRef(null);
+    const waterFallTileCanvasBRef = useRef(null);
     const bandscopeCanvasRef = useRef(null);
     const dBAxisScopeCanvasRef = useRef(null);
     const waterFallLeftMarginCanvasRef = useRef(null);
     const waterFallLeftMarginFillerRef = useRef(null);
     const workerRef = useRef(null);
+    const domTileRendererRef = useRef(null);
+    const latestDomFftRef = useRef(null);
+    const bandscopeTimerRef = useRef(null);
+    const domFftHistoryRef = useRef([]);
+    const domSmoothedFftRef = useRef([]);
     const dottedLineImageDataRef = useRef(null);
     const canvasTransferredRef = useRef(false);
     const visualSettingsRef = useRef({
@@ -161,6 +171,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     const [isFullscreen, setIsFullscreen] = useState(false);
     const {
         colorMap,
+        waterfallRendererMode,
         colorMaps,
         dbRange,
         fftSizeOptions,
@@ -353,7 +364,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     }, []);
 
     useEffect(() => {
-        if (workerRef.current && lastRotatorEvent) {
+        if (waterfallRendererMode === 'worker' && workerRef.current && lastRotatorEvent) {
             // Format event with decorative dashes for waterfall display
             const formattedEvent = getRotatorEventDisplay(lastRotatorEvent);
 
@@ -362,10 +373,162 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                 event: formattedEvent,
             });
         }
-    }, [lastRotatorEvent]);
+    }, [lastRotatorEvent, waterfallRendererMode]);
 
     useEffect(() => {
-        if (waterFallCanvasRef.current && !canvasTransferredRef.current) {
+        if (waterfallRendererMode !== 'dom-tiles') {
+            if (domTileRendererRef.current) {
+                domTileRendererRef.current.destroy();
+                domTileRendererRef.current = null;
+            }
+            return;
+        }
+
+        if (!waterFallTileCanvasARef.current || !waterFallTileCanvasBRef.current) {
+            return;
+        }
+
+        const renderer = createDomTileWaterfallRenderer({
+            canvasA: waterFallTileCanvasARef.current,
+            canvasB: waterFallTileCanvasBRef.current,
+            width: waterFallCanvasWidth,
+            height: waterFallCanvasHeight,
+            colorMap,
+            dbRange,
+            backgroundColor: theme.palette.background.default,
+            onMetrics: (metrics) => {
+                eventMetrics.current = metrics;
+            },
+        });
+
+        domTileRendererRef.current = renderer;
+
+        return () => {
+            if (domTileRendererRef.current) {
+                domTileRendererRef.current.destroy();
+                domTileRendererRef.current = null;
+            }
+        };
+    }, [waterfallRendererMode, waterFallCanvasWidth, waterFallCanvasHeight]);
+
+    useEffect(() => {
+        if (waterfallRendererMode !== 'dom-tiles') {
+            if (bandscopeTimerRef.current) {
+                clearInterval(bandscopeTimerRef.current);
+                bandscopeTimerRef.current = null;
+            }
+            return;
+        }
+
+        const bandscopeCanvas = bandscopeCanvasRef.current;
+        const dBAxisCanvas = dBAxisScopeCanvasRef.current;
+        if (!bandscopeCanvas || !dBAxisCanvas) {
+            return;
+        }
+
+        const bandscopeCtx = bandscopeCanvas.getContext('2d', {
+            alpha: true,
+            desynchronized: true,
+            willReadFrequently: false,
+        });
+        const dBAxisCtx = dBAxisCanvas.getContext('2d', {
+            alpha: true,
+            desynchronized: true,
+            willReadFrequently: false,
+        });
+
+        if (!bandscopeCtx || !dBAxisCtx) {
+            return;
+        }
+
+        bandscopeCtx.imageSmoothingEnabled = true;
+        bandscopeCtx.imageSmoothingQuality = 'high';
+        dBAxisCtx.imageSmoothingEnabled = true;
+        dBAxisCtx.imageSmoothingQuality = 'high';
+
+        domFftHistoryRef.current = [];
+        domSmoothedFftRef.current = [];
+
+        const smoothingType = 'weighted';
+        const smoothingStrength = 0.9;
+        const maxFftHistoryLength = 5;
+
+        const drawTick = () => {
+            const fftData = latestDomFftRef.current;
+            if (!fftData || fftData.length === 0) {
+                return;
+            }
+
+            const smoothResult = updateSmoothedFftData(
+                fftData,
+                domFftHistoryRef.current,
+                domSmoothedFftRef.current,
+                smoothingType,
+                smoothingStrength,
+                maxFftHistoryLength
+            );
+            domFftHistoryRef.current = smoothResult.fftHistory;
+            domSmoothedFftRef.current = smoothResult.smoothedFftData;
+
+            drawBandscopeModule({
+                bandscopeCtx,
+                bandscopeCanvas,
+                fftData,
+                smoothedFftData: domSmoothedFftRef.current,
+                dbRange,
+                colorMap,
+                theme: {
+                    palette: {
+                        background: {
+                            default: theme.palette.background.default,
+                            paper: theme.palette.background.paper,
+                            elevated: theme.palette.background.elevated,
+                        },
+                        border: {
+                            main: theme.palette.border.main,
+                            light: theme.palette.border.light,
+                            dark: theme.palette.border.dark,
+                        },
+                        overlay: {
+                            light: theme.palette.overlay.light,
+                            medium: theme.palette.overlay.medium,
+                            dark: theme.palette.overlay.dark,
+                        },
+                        text: {
+                            primary: theme.palette.text.primary,
+                            secondary: theme.palette.text.secondary,
+                        }
+                    }
+                },
+                dBAxisCtx,
+                dBAxisCanvas
+            });
+        };
+
+        bandscopeTimerRef.current = setInterval(drawTick, 200);
+
+        return () => {
+            if (bandscopeTimerRef.current) {
+                clearInterval(bandscopeTimerRef.current);
+                bandscopeTimerRef.current = null;
+            }
+        };
+    }, [waterfallRendererMode, dbRange, colorMap, theme.palette.background, theme.palette.border, theme.palette.overlay, theme.palette.text]);
+
+    useEffect(() => {
+        if (waterfallRendererMode !== 'dom-tiles' || !domTileRendererRef.current) {
+            return;
+        }
+
+        domTileRendererRef.current.setConfig({
+            colorMap,
+            dbRange,
+            backgroundColor: theme.palette.background.default,
+        });
+    }, [waterfallRendererMode, colorMap, dbRange, theme.palette.background.default]);
+
+    useEffect(() => {
+        if (waterfallRendererMode === 'worker' && waterFallCanvasRef.current && !canvasTransferredRef.current) {
             // Worker message handler
             const handleWorkerMessage = (event) => {
                 const { type, data } = event.data;
@@ -428,7 +591,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
         return () => {
             // Cleanup handled elsewhere to avoid StrictMode issues
         };
-    }, [waterFallCanvasWidth, waterFallCanvasHeight, colorMap, dbRange, fftSize, showRotatorDottedLines, theme, dispatch, autoScalePreset]);
+    }, [waterfallRendererMode, waterFallCanvasWidth, waterFallCanvasHeight, colorMap, dbRange, fftSize, showRotatorDottedLines, theme, dispatch, autoScalePreset]);
 
     // Add event listener for fullscreen change
     useEffect(() => {
@@ -437,8 +600,9 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
 
     // Add event listener for waterfall canvas capture
     useEffect(() => {
+        if (waterfallRendererMode !== 'worker') return;
         return setupCanvasCaptureListener(workerRef);
-    }, []);
+    }, [waterfallRendererMode]);
 
     // Paint the waterfall left margin filler canvas with background color
     useEffect(() => {
@@ -510,8 +674,18 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     // Get audio context for proactive resume on stream start
     const { getAudioState, initializeAudio } = useAudio();
 
+    const handleDomTileFftData = useCallback((fftData) => {
+        if (waterfallRendererMode !== 'dom-tiles' || !domTileRendererRef.current) {
+            return;
+        }
+        latestDomFftRef.current = fftData;
+        domTileRendererRef.current.pushFrame(fftData);
+    }, [waterfallRendererMode]);
+
     const { startStreaming, stopStreaming, playButtonEnabledOrNot } = useWaterfallStream({
         workerRef,
+        waterfallRendererMode,
+        onDomTileFftData: handleDomTileFftData,
         targetFPSRef,
         playbackElapsedSecondsRef,
         playbackRemainingSecondsRef,
@@ -521,6 +695,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     });
 
     useEffect(() => {
+        if (waterfallRendererMode !== 'worker') return;
         if (!workerRef.current) return;
 
         workerRef.current.postMessage({
@@ -552,33 +727,34 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                 }
             }
         });
-    }, [colorMap, dbRange, fftSize, theme.palette.background, theme.palette.border, theme.palette.overlay, theme.palette.text]);
+    }, [waterfallRendererMode, colorMap, dbRange, fftSize, theme.palette.background, theme.palette.border, theme.palette.overlay, theme.palette.text]);
 
     useEffect(() => {
+        if (waterfallRendererMode !== 'worker') return;
         if (!workerRef.current) return;
         workerRef.current.postMessage({
             cmd: 'setAutoScalePreset',
             preset: autoScalePreset,
         });
-    }, [autoScalePreset]);
+    }, [waterfallRendererMode, autoScalePreset]);
 
     // Update the worker when FPS changes
     useEffect(() => {
         targetFPSRef.current = targetFPS;
 
-        if (workerRef.current && isStreaming) {
+        if (waterfallRendererMode === 'worker' && workerRef.current && isStreaming) {
             workerRef.current.postMessage({
                 cmd: 'updateFPS',
                 data: {fps: targetFPS}
             });
         }
-    }, [targetFPS]);
+    }, [waterfallRendererMode, targetFPS, isStreaming]);
 
     // Call this periodically, for example:
     useEffect(() => {
         let interval;
 
-        if (isStreaming && autoDBRange) {
+        if (waterfallRendererMode === 'worker' && isStreaming && autoDBRange) {
             interval = setInterval(() => {
                 workerRef.current.postMessage({ cmd: 'autoScaleDbRange' });
             }, 2000); // Update 2 seconds
@@ -589,7 +765,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                 clearInterval(interval);
             }
         };
-    }, [isStreaming, autoDBRange]);
+    }, [waterfallRendererMode, isStreaming, autoDBRange]);
 
     const toggleLeftSide = () => dispatch(setShowLeftSideWaterFallAccessories(!showLeftSideWaterFallAccessories));
     const toggleRightSide = () => dispatch(setShowRightSideWaterFallAccessories(!showRightSideWaterFallAccessories));
@@ -764,6 +940,9 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                         ref={waterfallControlRef}
                         bandscopeCanvasRef={bandscopeCanvasRef}
                         waterFallCanvasRef={waterFallCanvasRef}
+                        waterFallTileCanvasARef={waterFallTileCanvasARef}
+                        waterFallTileCanvasBRef={waterFallTileCanvasBRef}
+                        waterfallRendererMode={waterfallRendererMode}
                         centerFrequency={centerFrequency}
                         sampleRate={sampleRate}
                         waterFallWindowHeight={dimensions['height']}

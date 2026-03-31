@@ -39,7 +39,6 @@ let ringHeadY = 0; // points to the next row to write (newest row will be at rin
 let bandscopeCtx = null;
 let dBAxisCtx = null;
 let waterFallLeftMarginCtx = null;
-let renderIntervalId = null;
 let targetFPS = 15;
 let fftData = new Array(1024).fill(-120);
 let fftSize = 8192;
@@ -127,6 +126,11 @@ let smoothedFftData = new Array(1024).fill(-120);
 // and function calls inside the hot rendering loop.
 let palette = null; // Uint8Array of length 256*3
 let paletteDirty = true;
+let presentLoopRunning = false;
+let presentRafId = null;
+let presentTimeoutId = null;
+let pendingRowsToPresent = 0;
+let needsPresent = false;
 
 function rebuildPalette() {
     if (!dbRange || dbRange.length !== 2) return;
@@ -251,18 +255,6 @@ self.onmessage = function(eventMessage) {
             playbackTotalSeconds = eventMessage.data.playback_total_seconds || null;
             lastPlaybackRemainingSeconds = newRemainingSeconds;
 
-            // Update smoothed data with every new FFT frame
-            const smoothResult = updateSmoothedFftData(
-                eventMessage.data.fft,
-                fftHistory,
-                smoothedFftData,
-                smoothingType,
-                smoothingStrength,
-                maxFftHistoryLength
-            );
-            fftHistory = smoothResult.fftHistory;
-            smoothedFftData = smoothResult.smoothedFftData;
-
             // Store FFT data in history for auto-scaling if collection is enabled
             if (collectAutoScaleHistory) {
                 waterfallHistory = storeFFTDataInHistory(eventMessage.data.fft, waterfallHistory, maxHistoryLength);
@@ -288,9 +280,14 @@ self.onmessage = function(eventMessage) {
                 collectAutoScaleHistory = false;
             }
 
-            // If we're set to immediate rendering, trigger a render now
-            if (eventMessage.data.immediate) {
-                renderWaterfall();
+            // Ingest every FFT frame into the ring buffer immediately.
+            // Presentation to visible canvas is handled by a dedicated present loop.
+            ingestWaterfallRow(eventMessage.data.fft);
+
+            // Keep compatibility for non-streaming/manual scenarios where
+            // start/stop lifecycle may not be running.
+            if (eventMessage.data.immediate && !presentLoopRunning) {
+                presentWaterfall();
             }
             break;
         }
@@ -477,6 +474,20 @@ function throttledDrawBandscope() {
 
     // Only draw if enough time has passed since the last draw
     if (now - lastBandscopeDrawTime >= bandscopeDrawInterval) {
+        // Compute smoothing only when the bandscope is actually redrawn.
+        // This avoids expensive per-packet smoothing work when FFT ingest
+        // cadence is much higher than visual bandscope cadence.
+        const smoothResult = updateSmoothedFftData(
+            fftData,
+            fftHistory,
+            smoothedFftData,
+            smoothingType,
+            smoothingStrength,
+            maxFftHistoryLength
+        );
+        fftHistory = smoothResult.fftHistory;
+        smoothedFftData = smoothResult.smoothedFftData;
+
         drawBandscopeModule({
             bandscopeCtx,
             bandscopeCanvas,
@@ -557,6 +568,8 @@ function setupCanvas(config) {
     });
     ringCtx.imageSmoothingEnabled = false;
     ringHeadY = 0;
+    pendingRowsToPresent = 0;
+    needsPresent = false;
 
     // Initialize the imageData for faster rendering
     imageData = waterfallCtx.createImageData(waterfallCanvas.width, 1);
@@ -592,13 +605,14 @@ function setupCanvas(config) {
 }
 
 function startRendering(fps) {
-    // Clear any existing interval first
+    // Clear any existing loop first
     stopRendering();
 
     // Clear last rotator events
     rotatorEventQueue = [];
 
     targetFPS = fps;
+    startPresentLoop();
 
     // Confirm start
     self.postMessage({ type: 'status', status: 'started', fps: targetFPS });
@@ -606,30 +620,70 @@ function startRendering(fps) {
 
 // Stop the rendering cycle
 function stopRendering() {
-    if (renderIntervalId) {
-        clearInterval(renderIntervalId);
-        renderIntervalId = null;
-    }
+    stopPresentLoop();
     self.postMessage({ type: 'status', status: 'stopped' });
 }
 
-function renderWaterfall() {
+function startPresentLoop() {
+    presentLoopRunning = true;
+    scheduleNextPresent();
+}
+
+function stopPresentLoop() {
+    presentLoopRunning = false;
+    if (presentRafId !== null && typeof self.cancelAnimationFrame === 'function') {
+        self.cancelAnimationFrame(presentRafId);
+    }
+    if (presentTimeoutId !== null) {
+        clearTimeout(presentTimeoutId);
+    }
+    presentRafId = null;
+    presentTimeoutId = null;
+    pendingRowsToPresent = 0;
+    needsPresent = false;
+}
+
+function scheduleNextPresent() {
+    if (!presentLoopRunning) return;
+
+    if (typeof self.requestAnimationFrame === 'function') {
+        presentRafId = self.requestAnimationFrame(presentTick);
+        return;
+    }
+
+    // Fallback for environments without rAF support in workers
+    presentTimeoutId = setTimeout(presentTick, 16);
+}
+
+function presentTick() {
+    if (!presentLoopRunning) return;
+    presentWaterfall();
+    scheduleNextPresent();
+}
+
+function ingestWaterfallRow(frame) {
     if (!waterfallCanvas || !waterfallCtx) return;
+
+    // Move head UPWARD in ring space. Decrement BEFORE writing so this row
+    // becomes the newest row at the top of the composed output.
+    const h = waterfallCanvas.height;
+    ringHeadY = (ringHeadY - 1 + h) % h;
+
+    // Render the new row in the ring buffer and mark presentation as needed.
+    renderFFTRowIntoRing(frame, ringHeadY);
+    pendingRowsToPresent++;
+    needsPresent = true;
+}
+
+function presentWaterfall() {
+    if (!waterfallCanvas || !waterfallCtx || !needsPresent) return;
 
     // Increment the counter for rate calculation
     renderWaterfallCount++;
 
-    // Move head UPWARD in ring space so that increasing visible Y corresponds
-    // to OLDER rows (newest at top, older below). Decrement BEFORE writing,
-    // so the row we write now becomes the new "top" row for composition.
-    const h = waterfallCanvas.height;
-    ringHeadY = (ringHeadY - 1 + h) % h;
-
-    // Render the new row of FFT data into the ring buffer at ringHeadY (new head)
-    renderFFTRowIntoRing(fftData, ringHeadY);
-
     // Composite the ring buffer to the visible canvas with the NEWEST row at the TOP
     // The newest row is at ringHeadY, so start composition there
+    const h = waterfallCanvas.height;
     const w = waterfallCanvas.width;
     const topStart = ringHeadY; // row index in ring that should appear at y=0
     const heightA = h - topStart;
@@ -643,21 +697,27 @@ function renderWaterfall() {
         waterfallCtx.drawImage(ringCanvas, 0, 0, w, topStart, 0, heightA, w, topStart);
     }
 
-    // Update the left margin column using module
-    const marginResult = updateWaterfallLeftMarginModule({
-        waterFallLeftMarginCtx,
-        waterfallLeftMarginCanvas,
-        waterfallCanvas,
-        waterfallCtx,
-        rotatorEventQueue,
-        showRotatorDottedLines,
-        theme,
-        lastTimestamp,
-        dottedLineImageData,
-        recordingDatetime  // Pass recording datetime for playback mode
-    });
-    lastTimestamp = marginResult.lastTimestamp;
-    dottedLineImageData = marginResult.dottedLineImageData;
+    // Left margin should advance one pixel per ingested waterfall row.
+    if (pendingRowsToPresent > 0) {
+        for (let i = 0; i < pendingRowsToPresent; i++) {
+            const marginResult = updateWaterfallLeftMarginModule({
+                waterFallLeftMarginCtx,
+                waterfallLeftMarginCanvas,
+                waterfallCanvas,
+                waterfallCtx,
+                rotatorEventQueue,
+                showRotatorDottedLines,
+                theme,
+                lastTimestamp,
+                dottedLineImageData,
+                recordingDatetime  // Pass recording datetime for playback mode
+            });
+            lastTimestamp = marginResult.lastTimestamp;
+            dottedLineImageData = marginResult.dottedLineImageData;
+        }
+    }
+    pendingRowsToPresent = 0;
+    needsPresent = false;
 
     // Draw bandscope with throttling
     throttledDrawBandscope();
@@ -738,11 +798,10 @@ function updateFPS(fps) {
         targetFPS = fps;
 
         // Restart with new FPS if currently running
-        if (renderIntervalId) {
+        if (presentLoopRunning) {
             startRendering(targetFPS);
         }
 
         self.postMessage({ type: 'status', status: 'fpsUpdated', fps: targetFPS });
     }
 }
-

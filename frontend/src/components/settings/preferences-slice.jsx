@@ -20,6 +20,20 @@
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
+const getDefaultWaterfallRendererMode = () => {
+    try {
+        if (typeof window !== 'undefined') {
+            const saved = window.localStorage.getItem('waterfallRendererMode');
+            if (saved === 'worker' || saved === 'dom-tiles') {
+                return saved;
+            }
+        }
+    } catch (error) {
+        // Ignore localStorage read errors and fall back to default.
+    }
+    return 'worker';
+};
+
 export const fetchPreferences = createAsyncThunk(
     'preferences/fetchPreferences',
     async ({socket}, {rejectWithValue}) => {
@@ -97,6 +111,11 @@ const preferencesSlice = createSlice({
                 id: null,
                 name: 'google_translate_api_key',
                 value: '',
+            },
+            {
+                id: null,
+                name: 'waterfall_renderer_mode',
+                value: getDefaultWaterfallRendererMode(),
             }
         ],
         status: 'idle',

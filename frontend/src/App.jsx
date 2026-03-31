@@ -28,11 +28,13 @@ import { getNavigation } from "./config/navigation.jsx";
 import { BRANDING } from "./config/branding.jsx";
 import { useSocketEventHandlers } from "./hooks/useSocketEventHandlers.jsx";
 import { usePassFetching } from "./hooks/usePassFetching.jsx";
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
+import { setWaterfallRendererMode } from './components/waterfall/waterfall-slice.jsx';
 
 export default function App() {
     const { socket } = useSocket();
+    const dispatch = useDispatch();
     const { i18n } = useTranslation();
     const preferences = useSelector((state) => state.preferences.preferences);
     const [navigation, setNavigation] = React.useState(getNavigation());
@@ -76,6 +78,20 @@ export default function App() {
         // Regenerate navigation after language is set
         setNavigation(getNavigation());
     }, [preferences, i18n]);
+
+    React.useEffect(() => {
+        const rendererPreference = preferences.find((pref) => pref.name === 'waterfall_renderer_mode');
+        const mode = rendererPreference?.value;
+        if (mode !== 'worker' && mode !== 'dom-tiles') {
+            return;
+        }
+        dispatch(setWaterfallRendererMode(mode));
+        try {
+            window.localStorage.setItem('waterfallRendererMode', mode);
+        } catch (error) {
+            // Ignore localStorage write errors.
+        }
+    }, [preferences, dispatch]);
 
     // Update navigation when language changes
     React.useEffect(() => {

@@ -36,6 +36,9 @@ import {useDopplerNeighbors} from '../../hooks/useDopplerNeighbors.jsx';
 const WaterfallAndBandscope = forwardRef(function WaterfallAndBandscope({
                                               bandscopeCanvasRef,
                                               waterFallCanvasRef,
+                                              waterFallTileCanvasARef,
+                                              waterFallTileCanvasBRef,
+                                              waterfallRendererMode = 'worker',
                                               centerFrequency,
                                               sampleRate,
                                               waterFallWindowHeight,
@@ -442,7 +445,9 @@ const WaterfallAndBandscope = forwardRef(function WaterfallAndBandscope({
     useEffect(() => {
         const canvases = [
             bandscopeCanvasRef.current,
-            waterFallCanvasRef.current
+            waterFallCanvasRef.current,
+            waterFallTileCanvasARef?.current,
+            waterFallTileCanvasBRef?.current,
         ];
 
         canvases.forEach(canvas => {
@@ -450,7 +455,7 @@ const WaterfallAndBandscope = forwardRef(function WaterfallAndBandscope({
                 canvas.style.touchAction = 'pan-y';
             }
         });
-    }, [bandscopeCanvasRef, waterFallCanvasRef]);
+    }, [bandscopeCanvasRef, waterFallCanvasRef, waterFallTileCanvasARef, waterFallTileCanvasBRef]);
 
     return (
         <Box sx={{
@@ -605,24 +610,86 @@ const WaterfallAndBandscope = forwardRef(function WaterfallAndBandscope({
                     sampleRate={sampleRate}
                 />
 
-                <canvas
-                    className={"waterfall-canvas"}
-                    ref={waterFallCanvasRef}
-                    width={waterFallCanvasWidth}
-                    height={waterFallCanvasHeight}
-                    style={{
-                        imageRendering: 'smooth',
-                        WebkitFontSmoothing: 'antialiased',
-                        width: '100%',
-                        height: `${waterFallCanvasHeight}px`,
-                        backgroundColor: theme.palette.background.default,
-                        display: 'block',
-                        touchAction: 'pan-y',
-                        transform: 'translateZ(0)', // this it breaks box-shadow CSS
-                        backfaceVisibility: 'hidden',
-                        perspective: '1000px',
-                    }}
-                />
+                {waterfallRendererMode === 'dom-tiles' ? (
+                    <Box
+                        sx={{
+                            position: 'relative',
+                            width: '100%',
+                            height: `${waterFallCanvasHeight}px`,
+                            overflow: 'hidden',
+                            backgroundColor: theme.palette.background.default,
+                        }}
+                    >
+                        <canvas
+                            className={"waterfall-canvas-tile-a"}
+                            ref={waterFallTileCanvasARef}
+                            width={waterFallCanvasWidth}
+                            height={waterFallCanvasHeight}
+                            style={{
+                                imageRendering: 'pixelated',
+                                width: '100%',
+                                height: `${waterFallCanvasHeight}px`,
+                                display: 'block',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                touchAction: 'pan-y',
+                                transform: 'translate3d(0,0,0)',
+                                backfaceVisibility: 'hidden',
+                                willChange: 'transform',
+                            }}
+                        />
+                        <canvas
+                            className={"waterfall-canvas-tile-b"}
+                            ref={waterFallTileCanvasBRef}
+                            width={waterFallCanvasWidth}
+                            height={waterFallCanvasHeight}
+                            style={{
+                                imageRendering: 'pixelated',
+                                width: '100%',
+                                height: `${waterFallCanvasHeight}px`,
+                                display: 'block',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                touchAction: 'pan-y',
+                                transform: 'translate3d(0,0,0)',
+                                backfaceVisibility: 'hidden',
+                                willChange: 'transform',
+                            }}
+                        />
+                        <canvas
+                            className={"waterfall-canvas"}
+                            ref={waterFallCanvasRef}
+                            width={waterFallCanvasWidth}
+                            height={waterFallCanvasHeight}
+                            style={{
+                                width: 0,
+                                height: 0,
+                                display: 'none',
+                            }}
+                        />
+                    </Box>
+                ) : (
+                    <canvas
+                        className={"waterfall-canvas"}
+                        ref={waterFallCanvasRef}
+                        width={waterFallCanvasWidth}
+                        height={waterFallCanvasHeight}
+                        style={{
+                            imageRendering: 'smooth',
+                            WebkitFontSmoothing: 'antialiased',
+                            width: '100%',
+                            height: `${waterFallCanvasHeight}px`,
+                            backgroundColor: theme.palette.background.default,
+                            display: 'block',
+                            touchAction: 'pan-y',
+                            transform: 'translateZ(0)', // this it breaks box-shadow CSS
+                            backfaceVisibility: 'hidden',
+                            perspective: '1000px',
+                        }}
+                    />
+                )}
             </Box>
 
         </Box>
