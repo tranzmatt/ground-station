@@ -445,6 +445,11 @@ const targetSatTrackSlice = createSlice({
         setSatelliteData(state, action) {
             if (action.payload['tracking_state']) {
                 state.trackingState = action.payload['tracking_state'];
+                // Keep selected target in sync with backend tracking updates so
+                // consumers (e.g. overview map crosshair) follow target changes immediately.
+                if (action.payload['tracking_state']?.norad_id != null) {
+                    state.satelliteId = action.payload['tracking_state'].norad_id;
+                }
             }
 
             if (action.payload['satellite_data']) {
@@ -475,6 +480,11 @@ const targetSatTrackSlice = createSlice({
                     state.transmitterSyncLock = { noradId: null, expiresAtMs: 0 };
                 }
                 state.satelliteData.nextPass = action.payload['satellite_data']['nextPass'];
+
+                // Fallback sync in case backend message omits tracking_state.
+                if (!action.payload['tracking_state'] && normalizedSatelliteData?.details?.norad_id != null) {
+                    state.satelliteId = normalizedSatelliteData.details.norad_id;
+                }
             }
 
             // Detect state change for the rotator and do stuff there
