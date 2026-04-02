@@ -20,7 +20,7 @@
 
 
 import * as React from 'react';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {DataGrid, gridClasses} from '@mui/x-data-grid';
 import {
     Alert,
@@ -42,6 +42,7 @@ import { toast } from '../../utils/toast-with-timestamp.jsx';
 import {useSocket} from "../common/socket.jsx";
 import {setFormValues, setOpenAddDialog, setOpenDeleteConfirm, setSelected} from "./sources-slice.jsx"
 import SynchronizeTLEsCard from "./sychronize-card.jsx";
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 const paginationModel = {page: 0, pageSize: 10};
 
@@ -50,6 +51,7 @@ export default function SourcesTable() {
     const {socket} = useSocket();
     const { t } = useTranslation('satellites');
     const {tleSources, loading, formValues, openDeleteConfirm, openAddDialog, selected} = useSelector((state) => state.tleSources);
+    const rowSelectionModel = useMemo(() => toRowSelectionModel(selected), [selected]);
 
     // Get timezone preference
     const timezone = useSelector((state) => {
@@ -194,8 +196,9 @@ export default function SourcesTable() {
                     pageSizeOptions={[5, 10]}
                     checkboxSelection={true}
                     onRowSelectionModelChange={(selected) => {
-                        dispatch(setSelected(selected));
+                        dispatch(setSelected(toSelectedIds(selected)));
                     }}
+                    rowSelectionModel={rowSelectionModel}
                     sx={{
                         border: 0,
                         marginTop: 2,

@@ -79,6 +79,7 @@ import {
 } from "./satellite-slice.jsx";
 import {useSocket} from "../common/socket.jsx";
 import { useTranslation } from 'react-i18next';
+import {toSelectedIds} from '../../utils/datagrid-selection.js';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useNavigate } from "react-router-dom";
@@ -624,7 +625,7 @@ const SatelliteTable = React.memo(function SatelliteTable() {
                         pagination: CustomPagination,
                     }}
                     onRowSelectionModelChange={(selection) => {
-                        const normalized = selection.map((value) => Number(value));
+                        const normalized = toSelectedIds(selection).map((value) => Number(value));
                         dispatch(setSelected(normalized));
                     }}
                     localeText={{

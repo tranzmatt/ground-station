@@ -19,7 +19,7 @@
 
 
 
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import {
     Box,
     Button,
@@ -52,6 +52,7 @@ import {
     setDeleteConfirmDialogOpen,
 } from './groups-slice.jsx';
 import { useTranslation } from 'react-i18next';
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 
 const SatelliteChipsCell = ({ value, navigate }) => {
@@ -134,6 +135,7 @@ const GroupsTable = () => {
         loading,
         error,
     } = useSelector((state) => state.satelliteGroups);
+    const rowSelectionModel = useMemo(() => toRowSelectionModel(selected), [selected]);
 
     const columns = [
         {
@@ -228,9 +230,9 @@ const GroupsTable = () => {
                 pageSizeOptions={[5, 10]}
                 checkboxSelection
                 onRowSelectionModelChange={(ids) => {
-                    dispatch(setSelected(ids));
+                    dispatch(setSelected(toSelectedIds(ids)));
                 }}
-                selectionModel={selected}
+                rowSelectionModel={rowSelectionModel}
                 localeText={{
                     noRowsLabel: t('groups.no_groups')
                 }}

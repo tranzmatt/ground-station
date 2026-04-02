@@ -363,7 +363,7 @@ const MemoizedStyledDataGrid = React.memo(function MemoizedStyledDataGrid({
                 }
             }}
             columns={columns}
-            disableSelectionOnClick
+            disableRowSelectionOnClick
         />
     );
 }, (prevProps, nextProps) => {

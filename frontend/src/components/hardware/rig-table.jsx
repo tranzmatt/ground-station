@@ -52,12 +52,14 @@ import {
 import { toast } from '../../utils/toast-with-timestamp.jsx';
 import {DataGrid, gridClasses} from "@mui/x-data-grid";
 import Paper from "@mui/material/Paper";
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 
 export default function RigTable() {
     const dispatch = useDispatch();
     const {socket} = useSocket();
     const {rigs, loading, selected, openDeleteConfirm, formValues, openAddDialog} = useSelector((state) => state.rigs);
+    const rowSelectionModel = React.useMemo(() => toRowSelectionModel(selected), [selected]);
     const { t } = useTranslation('hardware');
     const isEditing = Boolean(formValues.id);
 
@@ -183,10 +185,9 @@ export default function RigTable() {
                         rows={rigs}
                         columns={columns}
                         checkboxSelection
-                        disableSelectionOnClick
-                        selectionModel={selected}
+                        rowSelectionModel={rowSelectionModel}
                         onRowSelectionModelChange={(selected) => {
-                            dispatch(setSelected(selected));
+                            dispatch(setSelected(toSelectedIds(selected)));
                         }}
                         initialState={{
                             pagination: {paginationModel: {pageSize: 5}},

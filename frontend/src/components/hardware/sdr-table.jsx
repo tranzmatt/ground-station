@@ -36,7 +36,7 @@ import {
     TextField,
     Typography
 } from "@mui/material";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import { useTranslation } from 'react-i18next';
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
@@ -62,6 +62,7 @@ import {
 import Paper from "@mui/material/Paper";
 import MemoryIcon from '@mui/icons-material/Memory';
 import DnsIcon from '@mui/icons-material/Dns';
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 // SDR type field configurations with default values
 const sdrTypeFields = {
@@ -187,6 +188,7 @@ export default function SDRsPage() {
         localRtlDevices,
         loadingLocalRtlSDRs,
     } = useSelector((state) => state.sdrs);
+    const rowSelectionModel = useMemo(() => toRowSelectionModel(selected), [selected]);
     const isEditing = Boolean(formValues.id);
     const isDialogLoading = loading || loadingLocalSDRs || loadingLocalRtlSDRs;
 
@@ -910,9 +912,8 @@ export default function SDRsPage() {
                             }))}
                         columns={columns}
                         checkboxSelection
-                        disableSelectionOnClick
                         onRowSelectionModelChange={(selected) => {
-                            setSelected(selected);
+                            setSelected(toSelectedIds(selected));
                         }}
                         initialState={{
                             pagination: {paginationModel: {pageSize: 10}},
@@ -920,7 +921,7 @@ export default function SDRsPage() {
                                 sortModel: [{field: 'name', sort: 'desc'}],
                             },
                         }}
-                        selectionModel={selected}
+                        rowSelectionModel={rowSelectionModel}
                         pageSize={pageSize}
                         pageSizeOptions={[5, 10, 25, {value: -1, label: 'All'}]}
                         onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}

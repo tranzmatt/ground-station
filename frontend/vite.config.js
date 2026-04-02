@@ -82,6 +82,15 @@ export default defineConfig(({ mode }) => {
       },
     },
 
+    // NOTE:
+    // With Vite 8 / Rolldown and satellite.js v7, worker bundles can include top-level await.
+    // The default worker output format ('iife') cannot represent top-level await, which causes:
+    // "Top-level await is currently not supported with the 'iife' output format".
+    // Force worker output to ESM so top-level await remains valid.
+    worker: {
+      format: 'es',
+    },
+
     // Build configuration
     build: {
       outDir: 'dist',
@@ -91,9 +100,19 @@ export default defineConfig(({ mode }) => {
       // Optimize chunks
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
-            // Add more manual chunks as needed
+          // NOTE:
+          // In Vite 8 / Rolldown, object-style `manualChunks` triggers an "Invalid type" warning.
+          // Use function form to keep deterministic vendor chunking.
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            if (
+              id.includes('/react/') ||
+              id.includes('/react-dom/') ||
+              id.includes('/react-router/') ||
+              id.includes('/react-router-dom/')
+            ) {
+              return 'vendor';
+            }
           },
         },
       },

@@ -54,9 +54,9 @@ import {useStore} from 'react-redux';
 import {
     gridPageCountSelector,
     gridPageSelector,
+    gridRowSelectionCountSelector,
     useGridApiContext,
     useGridSelector,
-    selectedGridRowsCountSelector,
 } from '@mui/x-data-grid';
 import ProgressFormatter from "./progressbar-widget.jsx";
 import { useTranslation } from 'react-i18next';
@@ -73,7 +73,7 @@ const CustomPagination = () => {
     const apiRef = useGridApiContext();
     const page = useGridSelector(apiRef, gridPageSelector);
     const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const selectedRowCount = useGridSelector(apiRef, selectedGridRowsCountSelector);
+    const selectedRowCount = useGridSelector(apiRef, gridRowSelectionCountSelector);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));

@@ -23,7 +23,7 @@ import Box from '@mui/material/Box';
 import {DataGrid, gridClasses} from "@mui/x-data-grid";
 import Stack from "@mui/material/Stack";
 import {Alert, AlertTitle, Button, FormControl, InputLabel, MenuItem, Select, TextField} from "@mui/material";
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import { useTranslation } from 'react-i18next';
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
@@ -41,6 +41,7 @@ import {
     setFormValues,
 } from './camera-slice.jsx';
 import Paper from "@mui/material/Paper";
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 export default function CameraTable() {
     const {socket} = useSocket();
@@ -57,6 +58,7 @@ export default function CameraTable() {
         openDeleteConfirm,
         formValues
     } = useSelector((state) => state.cameras);
+    const rowSelectionModel = useMemo(() => toRowSelectionModel(selected), [selected]);
 
     const columns = [
         {field: 'name', headerName: t('camera.name'), flex: 1, minWidth: 150},
@@ -106,9 +108,9 @@ export default function CameraTable() {
                         rows={cameras}
                         columns={columns}
                         checkboxSelection
-                        disableSelectionOnClick
+                        disableRowSelectionOnClick
                         onRowSelectionModelChange={(selected) => {
-                            setSelected(selected);
+                            setSelected(toSelectedIds(selected));
                         }}
                         initialState={{
                             pagination: {paginationModel: {pageSize: 5}},
@@ -116,7 +118,7 @@ export default function CameraTable() {
                                 sortModel: [{field: 'name', sort: 'desc'}],
                             },
                         }}
-                        selectionModel={selected}
+                        rowSelectionModel={rowSelectionModel}
                         pageSize={pageSize}
                         pageSizeOptions={[5, 10, 25, {value: -1, label: 'All'}]}
                         onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}

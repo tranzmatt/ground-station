@@ -23,7 +23,7 @@ import Box from '@mui/material/Box';
 import {DataGrid, gridClasses} from "@mui/x-data-grid";
 import Stack from "@mui/material/Stack";
 import {Alert, AlertTitle, Button, InputAdornment, MenuItem, TextField, Typography} from "@mui/material";
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import { useTranslation } from 'react-i18next';
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
@@ -43,6 +43,7 @@ import {
     resetFormValues,
 } from './rotaror-slice.jsx';
 import Paper from "@mui/material/Paper";
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 
 export default function AntennaRotatorTable() {
@@ -60,6 +61,7 @@ export default function AntennaRotatorTable() {
         openDeleteConfirm,
         formValues
     } = useSelector((state) => state.rotators);
+    const rowSelectionModel = useMemo(() => toRowSelectionModel(selected), [selected]);
     const isEditing = Boolean(formValues.id);
 
     const columns = [
@@ -201,9 +203,8 @@ export default function AntennaRotatorTable() {
                         rows={rotators}
                         columns={columns}
                         checkboxSelection
-                        disableSelectionOnClick
                         onRowSelectionModelChange={(selected) => {
-                            setSelected(selected);
+                            setSelected(toSelectedIds(selected));
                         }}
                         initialState={{
                             pagination: {paginationModel: {pageSize: 5}},
@@ -211,7 +212,7 @@ export default function AntennaRotatorTable() {
                                 sortModel: [{field: 'name', sort: 'desc'}],
                             },
                         }}
-                        selectionModel={selected}
+                        rowSelectionModel={rowSelectionModel}
                         pageSize={pageSize}
                         pageSizeOptions={[5, 10, 25, {value: -1, label: 'All'}]}
                         onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}

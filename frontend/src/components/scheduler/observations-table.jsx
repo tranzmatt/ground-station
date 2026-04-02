@@ -17,7 +17,7 @@
  *
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { DataGrid, gridClasses, useGridApiRef } from '@mui/x-data-grid';
 import {
@@ -93,6 +93,18 @@ const getStatusColor = (status) => {
     }
 };
 
+const toSelectedIds = (selectionModel) => {
+    if (Array.isArray(selectionModel)) {
+        return selectionModel;
+    }
+
+    if (selectionModel?.ids instanceof Set) {
+        return Array.from(selectionModel.ids);
+    }
+
+    return [];
+};
+
 // Time formatter component that updates every second
 const TimeFormatter = React.memo(function TimeFormatter({ value }) {
     const [, setForceUpdate] = useState(0);
@@ -129,6 +141,10 @@ const ObservationsTable = () => {
     const openDataDialog = useSelector((state) => state.scheduler?.openObservationDataDialog || false);
     const selectedObservationForData = useSelector((state) => state.scheduler?.selectedObservationForData || null);
     const { timezone, locale } = useUserTimeSettings();
+    const rowSelectionModel = useMemo(
+        () => ({ type: 'include', ids: new Set(selectedIds) }),
+        [selectedIds]
+    );
 
     // Filter observations based on status filters
     const observations = allObservations.filter(obs => statusFilters[obs.status]);
@@ -532,10 +548,10 @@ const ObservationsTable = () => {
                     columns={columns}
                     loading={loading}
                     checkboxSelection
-                    disableSelectionOnClick
-                    rowSelectionModel={selectedIds}
+                    disableRowSelectionOnClick
+                    rowSelectionModel={rowSelectionModel}
                     onRowSelectionModelChange={(newSelection) => {
-                        dispatch(setSelectedObservationIds(newSelection));
+                        dispatch(setSelectedObservationIds(toSelectedIds(newSelection)));
                     }}
                     getRowClassName={(params) => {
                         // If cancelled, always show as cancelled regardless of time

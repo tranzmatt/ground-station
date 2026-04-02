@@ -58,6 +58,18 @@ import {
 import RegenerationPreviewDialog from './regeneration-preview-dialog.jsx';
 import { getFlattenedTasks, getSessionSdrs } from './session-utils.js';
 
+const toSelectedIds = (selectionModel) => {
+    if (Array.isArray(selectionModel)) {
+        return selectionModel;
+    }
+
+    if (selectionModel?.ids instanceof Set) {
+        return Array.from(selectionModel.ids);
+    }
+
+    return [];
+};
+
 const MonitoredSatellitesTable = () => {
     const dispatch = useDispatch();
     const { socket } = useSocket();
@@ -354,9 +366,9 @@ const MonitoredSatellitesTable = () => {
                     columns={columns}
                     loading={loading}
                     checkboxSelection
-                    disableSelectionOnClick
+                    disableRowSelectionOnClick
                     onRowSelectionModelChange={(newSelection) => {
-                        setSelectedIds(newSelection);
+                        setSelectedIds(toSelectedIds(newSelection));
                     }}
                     initialState={{
                         pagination: {

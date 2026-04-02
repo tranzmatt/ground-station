@@ -19,7 +19,7 @@
 
 
 import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react';
-import {Responsive, WidthProvider} from 'react-grid-layout';
+import {Responsive, WidthProvider} from 'react-grid-layout/legacy';
 import 'leaflet-fullscreen/dist/Leaflet.fullscreen.js';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';

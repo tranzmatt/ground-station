@@ -21,7 +21,7 @@
 
 import {combineReducers, configureStore} from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from "redux-persist";
-import storage from "redux-persist/lib/storage";
+import storageEngine from "redux-persist/lib/storage";
 import rigsReducer from '../hardware/rig-slice.jsx';
 import rotatorsReducer from '../hardware/rotaror-slice.jsx';
 import tleSourcesReducer from '../satellites/sources-slice.jsx';
@@ -49,6 +49,8 @@ import transcriptionReducer from '../waterfall/transcription-slice.jsx';
 import schedulerReducer from '../scheduler/scheduler-slice.jsx';
 import tasksReducer from '../tasks/tasks-slice.jsx';
 import backendSyncMiddleware from '../waterfall/vfo-marker/vfo-middleware.jsx';
+
+const storage = storageEngine?.default ?? storageEngine;
 
 
 // Persist configuration for waterfall slice

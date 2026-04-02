@@ -20,13 +20,14 @@
 
 
 import {useSocket} from "../common/socket.jsx";
-import {Fragment, useCallback, useEffect, useState} from "react";
+import {Fragment, useCallback, useEffect, useMemo, useState} from "react";
 import * as React from "react";
 import { toast } from '../../utils/toast-with-timestamp.jsx';
 import {Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField} from "@mui/material";
 import {DataGrid} from "@mui/x-data-grid";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
+import {toRowSelectionModel, toSelectedIds} from '../../utils/datagrid-selection.js';
 
 
 export function AutocompleteAsync({setSelectedSatelliteCallback}) {
@@ -122,6 +123,7 @@ export function AddEditDialog({formDialogOpen, handleRowsCallback, handleDialogO
     const [formDialogValues, setFormDialogValues] = useState(defaultFormValues);
     const [formErrorStatus, setFormErrorStatus] = useState(false);
     const [selectionModel, setSelectionModel] = useState([]);
+    const rowSelectionModel = useMemo(() => toRowSelectionModel(selectionModel), [selectionModel]);
     const paginationModel = {page: 0, pageSize: 10};
     const [satellites, setSatellites] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -268,8 +270,8 @@ export function AddEditDialog({formDialogOpen, handleRowsCallback, handleDialogO
                                     border: '1px solid rgba(0, 0, 0, 0.12)',
                                 }}
                                 checkboxSelection
-                                rowSelectionModel={selectionModel}
-                                onRowSelectionModelChange={(newModel) => setSelectionModel(newModel)}
+                                rowSelectionModel={rowSelectionModel}
+                                onRowSelectionModelChange={(newModel) => setSelectionModel(toSelectedIds(newModel))}
                             />
                         </Box>
                     </Box>

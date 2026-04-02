@@ -32,6 +32,7 @@ import { setTargetTransmitters } from "../target/target-slice.jsx";
 import {useSocket} from "../common/socket.jsx";
 import TransmitterModal from "./transmitter-modal.jsx";
 import { useTranslation } from 'react-i18next';
+import {toSelectedIds} from '../../utils/datagrid-selection.js';
 
 // Frequency formatting function
 const formatFrequency = (frequency) => {
@@ -288,7 +289,7 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
                         pageSizeOptions={[5, 10]}
                         checkboxSelection={true}
                         onRowSelectionModelChange={(newSelected) => {
-                            setSelected(newSelected);
+                            setSelected(toSelectedIds(newSelected));
                         }}
                         sx={{
                             border: 'none',

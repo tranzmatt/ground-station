@@ -19,7 +19,7 @@
 
 
 import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react';
-import {Responsive, WidthProvider} from 'react-grid-layout';
+import {Responsive, WidthProvider} from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import 'leaflet/dist/leaflet.css';
@@ -412,6 +412,11 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
     function handleLayoutsChange(currentLayout, allLayouts) {
         setLayouts(allLayouts);
         saveLayoutsToLocalStorage(allLayouts);
+        window.dispatchEvent(new Event('overview-map-layout-change'));
+    }
+
+    function handleLayoutWidthChange() {
+        window.dispatchEvent(new Event('overview-map-layout-change'));
     }
 
     // pre-made ResponsiveGridLayout
@@ -438,10 +443,12 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
     if (gridEditable === true) {
         ResponsiveGridLayoutParent =
             <ResponsiveReactGridLayout
-                useCSSTransforms={true}
+                useCSSTransforms={false}
+                measureBeforeMount={true}
                 className="layout"
                 layouts={layouts}
                 onLayoutChange={handleLayoutsChange}
+                onWidthChange={handleLayoutWidthChange}
                 breakpoints={{lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0}}
                 cols={{lg: 12, md: 10, sm: 6, xs: 2, xxs: 2}}
                 rowHeight={30}
@@ -454,10 +461,12 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
     } else {
         ResponsiveGridLayoutParent =
             <ResponsiveReactGridLayout
-                useCSSTransforms={true}
+                useCSSTransforms={false}
+                measureBeforeMount={true}
                 className="layout"
                 layouts={layouts}
                 onLayoutChange={handleLayoutsChange}
+                onWidthChange={handleLayoutWidthChange}
                 breakpoints={{lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0}}
                 cols={{lg: 12, md: 10, sm: 6, xs: 2, xxs: 2}}
                 rowHeight={30}
