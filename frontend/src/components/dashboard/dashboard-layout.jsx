@@ -60,6 +60,8 @@ import {setGridEditable as setOverviewGridEditable} from '../overview/overview-s
 import {setGridEditable as setTargetGridEditable} from '../target/target-slice.jsx';
 import {setGridEditable as setWaterfallGridEditable} from '../waterfall/waterfall-slice.jsx';
 import CheckIcon from '@mui/icons-material/Check';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import {useSocket} from "../common/socket.jsx";
 import {useDispatch, useSelector} from "react-redux";
 import { useTranslation } from 'react-i18next';
@@ -81,6 +83,7 @@ import BackgroundTasksPopover from "../tasks/tasks-popover.jsx";
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import {getNavigation} from "../../config/navigation.jsx";
+import { getFlattenedTasks, getSessionSdrs } from "../scheduler/session-utils.js";
 import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
 import { formatTime } from '../../utils/date-time.js';
 
@@ -203,6 +206,390 @@ function ToolbarActions() {
             <TimeDisplay />
             <ThemeSwitcher />
         </Stack>
+    );
+}
+
+function ActiveObservationIndicator() {
+    const observations = useSelector((state) => state.scheduler?.observations || []);
+    const { timezone, locale } = useUserTimeSettings();
+    const [remainingText, setRemainingText] = React.useState('');
+
+    const runningObservation = React.useMemo(
+        () => observations.find((obs) => obs.status === 'running' && obs.enabled),
+        [observations]
+    );
+
+    React.useEffect(() => {
+        if (!runningObservation) {
+            setRemainingText('');
+            return;
+        }
+
+        const updateRemaining = () => {
+            const endIso = runningObservation.task_end || runningObservation.pass?.event_end;
+            if (!endIso) {
+                setRemainingText('ending time unavailable');
+                return;
+            }
+
+            const now = new Date();
+            const endTime = new Date(endIso);
+            const remainingMs = endTime - now;
+
+            if (remainingMs <= 0) {
+                setRemainingText('ending soon');
+                return;
+            }
+
+            const hours = Math.floor(remainingMs / 3600000);
+            const minutes = Math.floor((remainingMs % 3600000) / 60000);
+            const seconds = Math.floor((remainingMs % 60000) / 1000);
+
+            if (hours > 0) {
+                setRemainingText(`${hours}h ${minutes}m ${seconds}s left`);
+            } else if (minutes > 0) {
+                setRemainingText(`${minutes}m ${seconds}s left`);
+            } else {
+                setRemainingText(`${seconds}s left`);
+            }
+        };
+
+        updateRemaining();
+        const interval = setInterval(updateRemaining, 1000);
+        return () => clearInterval(interval);
+    }, [runningObservation]);
+
+    if (!runningObservation) {
+        return null;
+    }
+
+    const endTimeIso = runningObservation.task_end || runningObservation.pass?.event_end;
+    const startTimeIso = runningObservation.task_start || runningObservation.pass?.event_start;
+    const formattedEndTime = endTimeIso
+        ? formatTime(endTimeIso, {
+            timezone,
+            locale,
+            options: { hour: '2-digit', minute: '2-digit', hour12: false },
+        })
+        : null;
+    const formattedStartTime = startTimeIso
+        ? formatTime(startTimeIso, {
+            timezone,
+            locale,
+            options: { hour: '2-digit', minute: '2-digit', hour12: false },
+        })
+        : null;
+    const peakAltitude = runningObservation.pass?.peak_altitude;
+    const taskCount = getFlattenedTasks(runningObservation).length;
+    const sdrCount = getSessionSdrs(runningObservation).length;
+
+    return (
+        <Box
+            sx={{
+                display: 'none',
+                '@media (min-width:1400px)': {
+                    display: 'flex',
+                },
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.25,
+                py: 0.4,
+                mx: 1,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'success.light',
+                backgroundColor: (theme) =>
+                    theme.palette.mode === 'dark'
+                        ? 'rgba(76, 175, 80, 0.18)'
+                        : 'rgba(76, 175, 80, 0.12)',
+                minWidth: 0,
+                maxWidth: 760,
+                flexShrink: 1,
+                overflow: 'hidden',
+            }}
+            aria-label="Active observation indicator"
+        >
+            <FiberManualRecordIcon
+                sx={{
+                    fontSize: 10,
+                    color: 'success.main',
+                    animation: 'observationPulse 1.6s ease-in-out infinite',
+                    '@keyframes observationPulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.45 },
+                    },
+                }}
+            />
+            <Typography
+                variant="caption"
+                sx={{
+                    fontWeight: 600,
+                    color: 'success.main',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                }}
+            >
+                Observing: {runningObservation.satellite?.name || 'Unknown'}
+            </Typography>
+            {runningObservation.satellite?.norad_id && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    ({runningObservation.satellite.norad_id})
+                </Typography>
+            )}
+            {(formattedEndTime || remainingText) && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • {formattedEndTime ? `ends ${formattedEndTime}` : ''}{formattedEndTime && remainingText ? ' • ' : ''}{remainingText}
+                </Typography>
+            )}
+            {formattedStartTime && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • started {formattedStartTime}
+                </Typography>
+            )}
+            {typeof peakAltitude === 'number' && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • peak {peakAltitude.toFixed(0)}°
+                </Typography>
+            )}
+            {sdrCount > 0 && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • {sdrCount} SDR{sdrCount > 1 ? 's' : ''}
+                </Typography>
+            )}
+            {taskCount > 0 && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • {taskCount} task{taskCount > 1 ? 's' : ''}
+                </Typography>
+            )}
+        </Box>
+    );
+}
+
+function UpcomingObservationIndicator() {
+    const observations = useSelector((state) => state.scheduler?.observations || []);
+    const { timezone, locale } = useUserTimeSettings();
+    const [nowMs, setNowMs] = React.useState(() => Date.now());
+
+    React.useEffect(() => {
+        const interval = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const { runningObservation, nextObservation, timeUntilStartMs } = React.useMemo(() => {
+        const now = new Date(nowMs);
+        const running = observations.find((obs) => obs.status === 'running' && obs.enabled);
+        const upcoming = observations
+            .filter((obs) => {
+                if (!obs.enabled || obs.status !== 'scheduled') return false;
+                const start = obs.task_start || obs.pass?.event_start;
+                return !!start;
+            })
+            .map((obs) => ({
+                ...obs,
+                startTime: new Date(obs.task_start || obs.pass?.event_start),
+            }))
+            .filter((obs) => obs.startTime > now)
+            .sort((a, b) => a.startTime - b.startTime)[0];
+
+        const timeUntil = upcoming ? upcoming.startTime - now : null;
+        return { runningObservation: running, nextObservation: upcoming, timeUntilStartMs: timeUntil };
+    }, [observations, nowMs]);
+
+    if (runningObservation || !nextObservation || !timeUntilStartMs || timeUntilStartMs > 60000 || timeUntilStartMs <= 0) {
+        return null;
+    }
+
+    const startTimeIso = nextObservation.task_start || nextObservation.pass?.event_start;
+    const formattedStartTime = startTimeIso
+        ? formatTime(startTimeIso, {
+            timezone,
+            locale,
+            options: { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false },
+        })
+        : null;
+    const peakAltitude = nextObservation.pass?.peak_altitude;
+    const taskCount = getFlattenedTasks(nextObservation).length;
+    const sdrCount = getSessionSdrs(nextObservation).length;
+
+    const totalSeconds = Math.ceil(timeUntilStartMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const countdownText = `${minutes}:${String(seconds).padStart(2, '0')}`;
+
+    return (
+        <Box
+            sx={{
+                display: 'none',
+                '@media (min-width:1400px)': {
+                    display: 'flex',
+                },
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.25,
+                py: 0.4,
+                mx: 1,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'info.light',
+                backgroundColor: (theme) =>
+                    theme.palette.mode === 'dark'
+                        ? 'rgba(33, 150, 243, 0.20)'
+                        : 'rgba(33, 150, 243, 0.12)',
+                minWidth: 0,
+                maxWidth: 760,
+                flexShrink: 1,
+                overflow: 'hidden',
+            }}
+            aria-label="Upcoming observation indicator"
+        >
+            <AccessTimeIcon
+                sx={{
+                    fontSize: 12,
+                    color: 'info.main',
+                    animation: 'upcomingObservationPulse 1.2s ease-in-out infinite',
+                    '@keyframes upcomingObservationPulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.5 },
+                    },
+                }}
+            />
+            <Typography
+                variant="caption"
+                sx={{
+                    fontWeight: 700,
+                    color: 'info.main',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                }}
+            >
+                Starting Soon: {nextObservation.satellite?.name || 'Unknown'}
+            </Typography>
+            {nextObservation.satellite?.norad_id && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    ({nextObservation.satellite.norad_id})
+                </Typography>
+            )}
+            <Typography
+                variant="caption"
+                sx={{
+                    color: 'info.main',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                }}
+            >
+                • T-{countdownText}
+            </Typography>
+            {formattedStartTime && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • starts {formattedStartTime}
+                </Typography>
+            )}
+            {typeof peakAltitude === 'number' && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • peak {peakAltitude.toFixed(0)}°
+                </Typography>
+            )}
+            {sdrCount > 0 && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • {sdrCount} SDR{sdrCount > 1 ? 's' : ''}
+                </Typography>
+            )}
+            {taskCount > 0 && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
+                    • {taskCount} task{taskCount > 1 ? 's' : ''}
+                </Typography>
+            )}
+        </Box>
     );
 }
 
@@ -778,6 +1165,17 @@ export default function Layout() {
                     </IconButton>
                     <Box sx={{ flexGrow: 1 }}>
                         <CustomAppTitle />
+                    </Box>
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        <ActiveObservationIndicator />
+                        <UpcomingObservationIndicator />
                     </Box>
                     <ToolbarActions />
                 </Toolbar>

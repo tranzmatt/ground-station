@@ -17,10 +17,9 @@
  *
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { toast } from '../utils/toast-with-timestamp.jsx';
-import { toast as rawToast } from 'react-toastify';
 import CableIcon from '@mui/icons-material/Cable';
 import { Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -33,42 +32,6 @@ const ToastMessage = ({ title, body }) => (
     </div>
 );
 
-const formatCountdown = (seconds) => {
-    const safeSeconds = Math.max(0, seconds);
-    const minutes = Math.floor(safeSeconds / 60);
-    const remaining = safeSeconds % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
-};
-
-const ObservationCountdownToast = ({ title, startTime, isStarted = false, toastId, totalDurationMs }) => {
-    const [secondsRemaining, setSecondsRemaining] = useState(() => {
-        return Math.ceil((new Date(startTime) - new Date()) / 1000);
-    });
-
-    useEffect(() => {
-        if (isStarted) return;
-        const interval = setInterval(() => {
-            const remaining = Math.ceil((new Date(startTime) - new Date()) / 1000);
-            setSecondsRemaining(remaining);
-            if (remaining <= 0) {
-                clearInterval(interval);
-            }
-            if (toastId && totalDurationMs > 0) {
-                const remainingMs = Math.max(0, new Date(startTime) - new Date());
-                const progress = Math.min(1, Math.max(0, remainingMs / totalDurationMs));
-                rawToast.update(toastId, { progress });
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [startTime, isStarted, toastId, totalDurationMs]);
-
-    return (
-        <div className="observation-countdown-toast__line">
-            {title} — {isStarted ? 'Observation started' : `Starts in ${formatCountdown(secondsRemaining)}`}
-        </div>
-    );
-};
 import SyncIcon from '@mui/icons-material/Sync';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
@@ -122,7 +85,6 @@ import { addTranscription } from '../components/waterfall/transcription-slice.js
 import { fetchSoapySDRServers } from '../components/hardware/sdr-slice.jsx';
 import ImageIcon from '@mui/icons-material/Image';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { observationStatusUpdated, fetchScheduledObservations } from '../components/scheduler/scheduler-slice.jsx';
@@ -145,9 +107,6 @@ export const useSocketEventHandlers = (socket) => {
 
     // Track which observations have been notified to prevent duplicate notifications
     const notifiedVisibility = useRef(new Set());
-    const notifiedStarts = useRef(new Set());
-    const countdownToastIds = useRef(new Map());
-    const startNotificationTimeouts = useRef(new Map());
 
     useEffect(() => {
         if (!socket) return;
@@ -576,44 +535,10 @@ export const useSocketEventHandlers = (socket) => {
             if (observation && observation.enabled) {
                 const satName = observation.satellite?.name || 'Unknown';
                 const obsName = observation.name || satName;
-                const startKey = `${observation.id}:${observation.task_start || observation.pass?.event_start}`;
-
-                if (data.status !== 'scheduled') {
-                    const timeoutId = startNotificationTimeouts.current.get(startKey);
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        startNotificationTimeouts.current.delete(startKey);
-                    }
-                }
 
                 if (data.status === 'running') {
-                    const toastId = countdownToastIds.current.get(startKey);
-                    if (toastId) {
-                        const details = [
-                            `Satellite: ${satName} (${observation.satellite?.norad_id || 'N/A'})`,
-                            observation.sdr?.name ? `SDR: ${observation.sdr.name}` : null,
-                            observation.transmitter?.frequency ? `Frequency: ${(observation.transmitter.frequency / 1e6).toFixed(3)} MHz` : null,
-                        ].filter(Boolean).join('\n');
-
-                        toast.update(
-                            toastId,
-                            <ObservationCountdownToast
-                                title={`Observation Started: ${obsName}`}
-                                startTime={observation.task_start || observation.pass?.event_start}
-                                isStarted={true}
-                                toastId={toastId}
-                                totalDurationMs={0}
-                            />,
-                            {
-                                icon: () => <CheckCircleIcon />,
-                                progress: 0,
-                                autoClose: 4000,
-                                position: 'top-center',
-                                disablePauseOnClick: true,
-                                type: 'success',
-                            }
-                        );
-                    }
+                    // Running state is surfaced in the top-bar banner.
+                    // Keep notifications quieter by not showing an additional start toast here.
                 } else if (data.status === 'completed') {
                     // Observation completed successfully
                     const startTime = observation.task_start || observation.pass?.event_start;
@@ -670,9 +595,6 @@ export const useSocketEventHandlers = (socket) => {
                         }
                     );
                 }
-                if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
-                    countdownToastIds.current.delete(startKey);
-                }
             }
         });
 
@@ -680,93 +602,6 @@ export const useSocketEventHandlers = (socket) => {
         socket.on('scheduled-observations-changed', () => {
             store.dispatch(fetchScheduledObservations({ socket }));
         });
-
-        const showObservationStartToast = (obs, taskStart) => {
-            const startKey = `${obs.id}:${obs.task_start || obs.pass?.event_start}`;
-            if (notifiedStarts.current.has(startKey)) return;
-            notifiedStarts.current.add(startKey);
-
-            const satName = obs.satellite?.name || 'Unknown';
-            const obsName = obs.name || satName;
-
-            const totalDurationMs = Math.max(0, taskStart - new Date());
-            const toastId = toast.info(
-                <ObservationCountdownToast
-                    title={`Observation Starting Soon: ${obsName}`}
-                    startTime={taskStart}
-                    toastId={null}
-                    totalDurationMs={totalDurationMs}
-                />,
-                {
-                    icon: () => <RadioButtonCheckedIcon />,
-                    autoClose: Math.max(0, taskStart - new Date()),
-                    progress: 1,
-                    position: 'top-center',
-                    onClose: () => countdownToastIds.current.delete(startKey),
-                    disablePauseOnClick: true,
-                    disableTimestamp: true,
-                }
-            );
-            rawToast.update(toastId, { progress: 1 });
-            toast.update(
-                toastId,
-                <ObservationCountdownToast
-                    title={`Observation Starting Soon: ${obsName}`}
-                    startTime={taskStart}
-                    toastId={toastId}
-                    totalDurationMs={totalDurationMs}
-                />,
-                { disablePauseOnClick: true, disableTimestamp: true }
-            );
-            countdownToastIds.current.set(startKey, toastId);
-        };
-
-        const scheduleObservationStartNotifications = (observations) => {
-            const now = new Date();
-            const nextKeys = new Set();
-
-            observations.forEach((obs) => {
-                if (!obs.enabled || obs.status !== 'scheduled' || !obs.pass) return;
-
-                const taskStartValue = obs.task_start || obs.pass.event_start;
-                if (!taskStartValue) return;
-
-                const taskStart = new Date(taskStartValue);
-                const startKey = `${obs.id}:${taskStartValue}`;
-                nextKeys.add(startKey);
-
-                if (notifiedStarts.current.has(startKey)) return;
-
-                const timeUntilStart = taskStart - now;
-                if (timeUntilStart <= 0) return;
-
-                if (timeUntilStart <= 60000) {
-                    const existingTimeout = startNotificationTimeouts.current.get(startKey);
-                    if (existingTimeout) {
-                        clearTimeout(existingTimeout);
-                        startNotificationTimeouts.current.delete(startKey);
-                    }
-                    showObservationStartToast(obs, taskStart);
-                    return;
-                }
-
-                if (!startNotificationTimeouts.current.has(startKey)) {
-                    const timeoutId = setTimeout(() => {
-                        startNotificationTimeouts.current.delete(startKey);
-                        showObservationStartToast(obs, taskStart);
-                    }, timeUntilStart - 60000);
-                    startNotificationTimeouts.current.set(startKey, timeoutId);
-                }
-            });
-
-            for (const [key, timeoutId] of startNotificationTimeouts.current.entries()) {
-                if (!nextKeys.has(key)) {
-                    clearTimeout(timeoutId);
-                    startNotificationTimeouts.current.delete(key);
-                    notifiedStarts.current.delete(key);
-                }
-            }
-        };
 
         // Monitor observation timing events (satellite visibility)
         const checkObservationTiming = () => {
@@ -827,20 +662,6 @@ export const useSocketEventHandlers = (socket) => {
         const timingInterval = setInterval(checkObservationTiming, 5000);
         // Run immediately on mount
         checkObservationTiming();
-
-        let previousStartSignature = '';
-        const unsubscribe = store.subscribe(() => {
-            const state = store.getState();
-            const observations = state.scheduler?.observations || [];
-            const nextSignature = observations
-                .map(obs => `${obs.id}:${obs.task_start || obs.pass?.event_start || ''}:${obs.enabled}:${obs.status}`)
-                .join('|');
-            if (nextSignature !== previousStartSignature) {
-                previousStartSignature = nextSignature;
-                scheduleObservationStartNotifications(observations);
-            }
-        });
-        scheduleObservationStartNotifications(store.getState().scheduler?.observations || []);
 
         // Decoder data events (SSTV, AFSK, Morse, GMSK, Transcription, etc.)
         socket.on('decoder-data', (data) => {
@@ -1015,11 +836,6 @@ export const useSocketEventHandlers = (socket) => {
 
         // Cleanup function
         return () => {
-            unsubscribe();
-            for (const timeoutId of startNotificationTimeouts.current.values()) {
-                clearTimeout(timeoutId);
-            }
-            startNotificationTimeouts.current.clear();
             clearInterval(timingInterval);
             socket.off('connect');
             socket.off('reconnect_attempt');
