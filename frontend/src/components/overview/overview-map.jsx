@@ -88,7 +88,6 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
 });
 
-const storageMapZoomValueKey = 'overview-map-zoom-level';
 const satelliteIconDimCircle = L.divIcon({
     className: 'overview-satellite-dim-icon',
     html: '<div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8;border:1px solid #e0f2fe;box-shadow:0 0 0 1px rgba(0,0,0,0.45),0 0 5px rgba(56,189,248,0.45);"></div></div>',
@@ -226,7 +225,6 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
             zoomend: () => {
                 const mapZoom = mapEvents.getZoom();
                 handleSetMapZoomLevel(mapZoom);
-                localStorage.setItem(storageMapZoomValueKey, mapZoom);
             },
             click: (e) => {
                 const target = e.originalEvent?.target;
@@ -656,12 +654,8 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
         };
     }, [tileLayerID]);
 
-    // On the component mount, load the map zoom level from localStorage
+    // On component mount, keep map size in sync with layout changes.
     useEffect(() => {
-        const savedZoomLevel = localStorage.getItem(storageMapZoomValueKey);
-        const initialMapZoom = savedZoomLevel ? parseFloat(savedZoomLevel) : 1;
-        dispatch(setMapZoomLevel(initialMapZoom));
-
         const handleLayoutChange = () => {
             if (!MapObject || !MapObject._container || !document.contains(MapObject._container)) {
                 return;

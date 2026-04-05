@@ -49,8 +49,6 @@ import SatelliteDetailsTable from "./satellites-table.jsx";
 import SatelliteGroupSelectorBar from "./satellite-group-selector-bar.jsx";
 import SatellitePassTimeline from "../target/timeline-main.jsx";
 
-const storageMapZoomValueKey = "overview-map-zoom-level";
-
 // Wrapper component to adapt overview passes to Timeline component
 const OverviewTimelineWrapper = React.memo(() => {
     const dispatch = useDispatch();
@@ -128,11 +126,6 @@ function saveLayoutsToLocalStorage(layouts) {
 const ThemedDiv = styled('div')(({theme}) => ({
     backgroundColor: theme.palette.background.paper,
 }));
-
-function getMapZoomFromStorage() {
-    const savedZoomLevel = localStorage.getItem(storageMapZoomValueKey);
-    return savedZoomLevel ? parseFloat(savedZoomLevel) : 1.4;
-}
 
 const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayout() {
     const {socket} = useSocket();
