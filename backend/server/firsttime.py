@@ -40,26 +40,42 @@ async def first_time_initialization():
 
             logger.info("FIRSTTIME - Populating database with default data...")
             # Add default TLE sources
-            cubesat_source = TLESources(
-                name="Cubesats",
-                identifier=generate_identifier(),
-                url="http://www.celestrak.com/NORAD/elements/cubesat.txt",
-                format="3le",
-            )
-            session.add(cubesat_source)
+            default_sources = [
+                (
+                    "Cubesats",
+                    "http://www.celestrak.com/NORAD/elements/cubesat.txt",
+                ),
+                (
+                    "NOAA",
+                    "http://celestrak.org/NORAD/elements/gp.php?GROUP=noaa&FORMAT=tle",
+                ),
+                (
+                    "Space stations",
+                    "http://www.celestrak.com/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
+                ),
+                (
+                    "Weather",
+                    "http://www.celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle",
+                ),
+                (
+                    "TinyGS",
+                    "https://api.tinygs.com/v1/tinygs_supported.txt",
+                ),
+            ]
 
-            amateur_source = TLESources(
-                name="Amateur",
-                identifier=generate_identifier(),
-                url="http://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle",
-                format="3le",
-            )
-            session.add(amateur_source)
+            for source_name, source_url in default_sources:
+                source = TLESources(
+                    name=source_name,
+                    identifier=generate_identifier(),
+                    url=source_url,
+                    format="3le",
+                )
+                session.add(source)
 
             await session.commit()
             logger.info(
-                "Initial data populated successfully with default TLE sources "
-                "(Cubesats and Amateur)."
+                "Initial data populated successfully with default TLE sources: "
+                "Cubesats, NOAA, Space stations, Weather, TinyGS."
             )
 
         except Exception as e:
