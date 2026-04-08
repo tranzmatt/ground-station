@@ -6,14 +6,14 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class AudioQueueConfig:
     # Demodulator output buffering (chunks of 1024 samples per channel at 44.1kHz)
-    demod_audio_internal_buffer_chunks: int = 3
+    demod_audio_internal_buffer_chunks: int = 7
 
     # Per-VFO AudioBroadcaster input queue (demodulator -> broadcaster)
-    per_vfo_audio_broadcast_input_size: int = 3
+    per_vfo_audio_broadcast_input_size: int = 6
 
     # Global web audio path queues
-    global_audio_queue_size: int = 3
-    web_audio_playback_queue_size: int = 3
+    global_audio_queue_size: int = 6
+    web_audio_playback_queue_size: int = 6
 
     # AudioBroadcaster subscribers for non-playback audio consumers
     audio_decoder_queue_size: int = 10
