@@ -15,6 +15,7 @@
 
 """VFO (Virtual Frequency Oscillator) handlers."""
 
+import asyncio
 from typing import Any, Dict, Optional, Union
 
 from sqlalchemy import select
@@ -430,8 +431,10 @@ async def toggle_transcription(
                                     )
                                 )
 
-                            # Start per-VFO transcription worker
-                            success = transcription_manager.start_transcription(
+                            # Start/restart can stop old worker and unsubscribe queues.
+                            # Run in a worker thread so Socket.IO event loop stays responsive.
+                            success = await asyncio.to_thread(
+                                transcription_manager.start_transcription,
                                 sdr_id=sdr_id,
                                 session_id=sid,
                                 vfo_number=vfo_number,
@@ -462,7 +465,10 @@ async def toggle_transcription(
         transcription_manager = process_manager.transcription_manager
 
         if transcription_manager:
-            transcription_manager.stop_transcription(
+            # Stop can unsubscribe from broadcaster/worker state.
+            # Offload to avoid blocking the Socket.IO event loop.
+            await asyncio.to_thread(
+                transcription_manager.stop_transcription,
                 sdr_id=sdr_id,
                 session_id=sid,
                 vfo_number=vfo_number,
