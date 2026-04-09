@@ -486,11 +486,7 @@ const BookmarkCanvas = ({
                     ctx.textAlign = 'center';
 
                     // Add semi-transparent background
-                    const hasAliveStatus = false;
-                    const ledRadius = 2.5;
-                    const ledGap = 5;
-                    const ledReserve = hasAliveStatus ? (ledRadius * 2 + ledGap) : 0;
-                    const leftReserve = ledReserve;
+                    const leftReserve = 0;
                     const displayLabel = bookmark.label;
                     const textMetrics = ctx.measureText(displayLabel);
                     const textWidth = textMetrics.width;
@@ -516,13 +512,6 @@ const BookmarkCanvas = ({
                     ctx.fill();
                     ctx.globalAlpha = 1.0;
 
-                    // Add subtle border
-                    ctx.strokeStyle = theme.palette.divider;
-                    ctx.globalAlpha = 0.2;
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                    ctx.globalAlpha = 1.0;
-
                     // Draw the text
                     ctx.shadowBlur = 2;
                     ctx.shadowColor = theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
@@ -531,17 +520,6 @@ const BookmarkCanvas = ({
                     const textX = x + (leftReserve / 2);
                     ctx.fillText(displayLabel, textX, labelY + textHeight - padding);
                     ctx.globalAlpha = 1.0;
-
-                    if (hasAliveStatus) {
-                        const ledX = boxLeft + padding + ledRadius;
-                        const ledY = labelY + textHeight / 2;
-                        ctx.beginPath();
-                        ctx.arc(ledX, ledY, ledRadius, 0, 2 * Math.PI);
-                        ctx.fillStyle = bookmark.metadata.alive ? theme.palette.success.main : theme.palette.error.main;
-                        ctx.globalAlpha = 0.9;
-                        ctx.fill();
-                        ctx.globalAlpha = 1.0;
-                    }
 
                     // Draw dotted line from bottom of canvas to south edge of label
                     ctx.beginPath();
@@ -638,14 +616,11 @@ const BookmarkCanvas = ({
                     ctx.textAlign = 'center';
 
                     // Add semi-transparent background
-                    const hasAliveStatus = typeof bookmark.metadata?.alive === 'boolean';
-                    const ledRadius = 2.5;
-                    const ledGap = 5;
-                    const ledReserve = hasAliveStatus ? (ledRadius * 2 + ledGap) : 0;
                     const typeIndicatorWidth = 6;
-                    const typeIndicatorGap = 6;
-                    const typeIndicatorReserve = typeIndicatorWidth + typeIndicatorGap;
-                    const leftReserve = ledReserve + typeIndicatorReserve;
+                    const typeIndicatorGap = 3;
+                    const typeIndicatorInset = 2;
+                    const typeIndicatorReserve = typeIndicatorInset + typeIndicatorWidth + typeIndicatorGap;
+                    const leftReserve = typeIndicatorReserve;
                     const displayLabel = bookmark.label;
                     const textMetrics = ctx.measureText(displayLabel);
                     const textWidth = textMetrics.width;
@@ -670,8 +645,8 @@ const BookmarkCanvas = ({
                     ctx.fill();
 
                     // Add subtle border
-                    ctx.strokeStyle = theme.palette.divider;
-                    ctx.globalAlpha = isInactive ? 0.2 : 0.3;
+                    ctx.strokeStyle = getLabelAccentColor(bookmark);
+                    ctx.globalAlpha = isInactive ? 0.28 : 0.42;
                     ctx.lineWidth = 1;
                     ctx.stroke();
                     ctx.globalAlpha = 1.0;
@@ -679,7 +654,12 @@ const BookmarkCanvas = ({
                     // Type color indicator inside label (left stripe)
                     ctx.fillStyle = getLabelAccentColor(bookmark);
                     ctx.globalAlpha = isInactive ? 0.5 : 0.9;
-                    ctx.fillRect(boxLeft + padding, boxTop + 2, typeIndicatorWidth, boxHeight - 4);
+                    ctx.fillRect(
+                        boxLeft + typeIndicatorInset,
+                        boxTop + typeIndicatorInset,
+                        typeIndicatorWidth,
+                        boxHeight - (typeIndicatorInset * 2)
+                    );
                     ctx.globalAlpha = 1.0;
 
                     // Draw the text
@@ -690,17 +670,6 @@ const BookmarkCanvas = ({
                     const textX = x + (leftReserve / 2);
                     ctx.fillText(displayLabel, textX, labelY + textHeight - padding);
                     ctx.globalAlpha = 1.0;
-
-                    if (hasAliveStatus) {
-                        const ledX = boxLeft + padding + typeIndicatorReserve + ledRadius;
-                        const ledY = labelY + textHeight / 2;
-                        ctx.beginPath();
-                        ctx.arc(ledX, ledY, ledRadius, 0, 2 * Math.PI);
-                        ctx.fillStyle = bookmark.metadata.alive ? theme.palette.success.main : theme.palette.error.main;
-                        ctx.globalAlpha = 0.9;
-                        ctx.fill();
-                        ctx.globalAlpha = 1.0;
-                    }
 
                     // Draw dotted line from bottom of canvas to south edge of label
                     ctx.beginPath();
@@ -732,14 +701,11 @@ const BookmarkCanvas = ({
                     labelBottomY = dopplerLabelY + textHeight + padding * 2;
 
                     // Add semi-transparent background
-                    const hasAliveStatus = typeof bookmark.metadata?.alive === 'boolean';
-                    const ledRadius = 2.5;
-                    const ledGap = 5;
-                    const ledReserve = hasAliveStatus ? (ledRadius * 2 + ledGap) : 0;
                     const typeIndicatorWidth = 6;
-                    const typeIndicatorGap = 6;
-                    const typeIndicatorReserve = typeIndicatorWidth + typeIndicatorGap;
-                    const leftReserve = ledReserve + typeIndicatorReserve;
+                    const typeIndicatorGap = 3;
+                    const typeIndicatorInset = 2;
+                    const typeIndicatorReserve = typeIndicatorInset + typeIndicatorWidth + typeIndicatorGap;
+                    const leftReserve = typeIndicatorReserve;
                     const displayLabel = bookmark.label;
                     const textMetrics = ctx.measureText(displayLabel);
                     const textWidth = textMetrics.width;
@@ -764,8 +730,8 @@ const BookmarkCanvas = ({
                     ctx.fill();
 
                     // Add subtle border
-                    ctx.strokeStyle = theme.palette.divider;
-                    ctx.globalAlpha = 0.3;
+                    ctx.strokeStyle = getLabelAccentColor(bookmark);
+                    ctx.globalAlpha = 0.38;
                     ctx.lineWidth = 1;
                     ctx.stroke();
                     ctx.globalAlpha = 1.0;
@@ -773,7 +739,12 @@ const BookmarkCanvas = ({
                     // Type color indicator inside label (left stripe)
                     ctx.fillStyle = getLabelAccentColor(bookmark);
                     ctx.globalAlpha = 0.9;
-                    ctx.fillRect(boxLeft + padding, boxTop + 2, typeIndicatorWidth, boxHeight - 4);
+                    ctx.fillRect(
+                        boxLeft + typeIndicatorInset,
+                        boxTop + typeIndicatorInset,
+                        typeIndicatorWidth,
+                        boxHeight - (typeIndicatorInset * 2)
+                    );
                     ctx.globalAlpha = 1.0;
 
                     // Draw the text
@@ -783,17 +754,6 @@ const BookmarkCanvas = ({
                     ctx.fillStyle = theme.palette.text.primary;
                     const textX = x + (leftReserve / 2);
                     ctx.fillText(displayLabel, textX, dopplerLabelY + textHeight - padding);
-
-                    if (hasAliveStatus) {
-                        const ledX = boxLeft + padding + typeIndicatorReserve + ledRadius;
-                        const ledY = dopplerLabelY + textHeight / 2;
-                        ctx.beginPath();
-                        ctx.arc(ledX, ledY, ledRadius, 0, 2 * Math.PI);
-                        ctx.fillStyle = bookmark.metadata.alive ? theme.palette.success.main : theme.palette.error.main;
-                        ctx.globalAlpha = 0.9;
-                        ctx.fill();
-                        ctx.globalAlpha = 1.0;
-                    }
 
                     // Draw dotted line from bottom of canvas to south edge of doppler label
                     ctx.beginPath();
