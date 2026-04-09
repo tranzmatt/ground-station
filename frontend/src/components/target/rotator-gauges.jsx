@@ -151,6 +151,60 @@ const Pointer = ({angle, stroke = "currentColor", strokeWidth = 1, opacity = 0.3
     );
 };
 
+const normalizeAngle = (angle) => {
+    if (!Number.isFinite(angle)) return null;
+    const normalized = angle % 360;
+    return normalized < 0 ? normalized + 360 : normalized;
+};
+
+const clockwiseDistance = (start, end) => (end - start + 360) % 360;
+
+const isAngleOnClockwiseArcInclusive = (angle, arcStart, arcEnd, epsilon = 1e-6) => {
+    const arcLength = clockwiseDistance(arcStart, arcEnd);
+    const pointLength = clockwiseDistance(arcStart, angle);
+    return pointLength >= -epsilon && pointLength <= arcLength + epsilon;
+};
+
+export const determineAzimuthArcFlags = (startAz, endAz, peakAz = null) => {
+    const start = normalizeAngle(startAz);
+    const end = normalizeAngle(endAz);
+    if (start === null || end === null) {
+        return [0, 1];
+    }
+
+    const cwLength = clockwiseDistance(start, end);
+    const ccwLength = (360 - cwLength) % 360;
+
+    // If no peak is available, keep behavior: prefer clockwise (sweep=1),
+    // and choose large/small based on shortest/longest relationship.
+    if (!Number.isFinite(peakAz)) {
+        return [cwLength > 180 ? 1 : 0, 1];
+    }
+
+    const peak = normalizeAngle(peakAz);
+    if (peak === null) {
+        return [cwLength > 180 ? 1 : 0, 1];
+    }
+
+    const onClockwiseArc = isAngleOnClockwiseArcInclusive(peak, start, end);
+    const onCounterClockwiseArc = isAngleOnClockwiseArcInclusive(peak, end, start);
+
+    if (onClockwiseArc && !onCounterClockwiseArc) {
+        return [cwLength > 180 ? 1 : 0, 1];
+    }
+    if (!onClockwiseArc && onCounterClockwiseArc) {
+        // Counter-clockwise from start->end is clockwise from end->start.
+        // For the same start/end SVG points, this maps to opposite sweep.
+        return [ccwLength > 180 ? 1 : 0, 0];
+    }
+
+    // Ambiguous (e.g. peak on both boundaries) - choose the shorter path.
+    if (cwLength <= ccwLength) {
+        return [cwLength > 180 ? 1 : 0, 1];
+    }
+    return [ccwLength > 180 ? 1 : 0, 0];
+};
+
 const CircleSlice = ({
                          startAngle,
                          endAngle,
@@ -178,95 +232,12 @@ const CircleSlice = ({
         y: cy - outerRadius * Math.cos(endAngleRad),
     };
 
-    function determineClockwiseDirection(arcArray) {
-        if (arcArray.length > 0 && arcArray.length > 1) {
-            if (arcArray[0] < arcArray[1]) {
-                return 1;
-            } else {
-                return 0;
-            }
-        } else {
-            return 1; // Default to clockwise
-        }
-    }
-
-    function determineArcToDisplay(startAz, endAz, peakAz) {
-        // Normalize angles to 0-360 range
-        startAz = Math.round((startAz + 360) % 360);
-        endAz = Math.round((endAz + 360) % 360);
-
-        if (peakAz !== null) {
-            peakAz = parseInt(peakAz + 360) % 360;
-
-            // Create lists for the small arc and big arc degrees
-            let smallArcDegrees = [];
-            let bigArcDegrees = [];
-
-            // Calculate the angle difference
-            const angleDiff = (endAz - startAz + 360) % 360;
-
-            // Determine which arc is the small one
-            if (angleDiff <= 180) {
-                // Small arc is clockwise from start to end
-                let current = startAz;
-                while (current !== endAz) {
-                    smallArcDegrees.push(current);
-                    current = (current + 1) % 360;
-                }
-
-                // Big arc is counter-clockwise from start to end
-                current = startAz;
-                while (current !== endAz) {
-                    current = (current - 1 + 360) % 360;
-                    bigArcDegrees.push(current);
-                }
-            } else {
-                // Small arc is counter-clockwise from start to end
-                let current = startAz;
-                while (current !== endAz) {
-                    current = (current - 1 + 360) % 360;
-                    smallArcDegrees.push(current);
-                }
-
-                // Big arc is clockwise from start to end
-                current = startAz;
-                while (current !== endAz) {
-                    current = (current + 1) % 360;
-                    bigArcDegrees.push(current);
-                }
-            }
-
-            // Check which arc contains the peak azimuth
-            if (smallArcDegrees.includes(peakAz)) {
-                // Get x-wise direction for arc
-                const clockwiseDirection = determineClockwiseDirection(smallArcDegrees);
-
-                // Use 0 for a small arc
-                return [0, clockwiseDirection];
-
-            } else if (bigArcDegrees.includes(peakAz)) {
-                // Get x-wise direction for arc
-                const clockwiseDirection = determineClockwiseDirection(bigArcDegrees);
-
-                // Use 1 for a big arc
-                return [1, clockwiseDirection];
-            } else {
-                // Default values if peak is not in either list
-                return [angleDiff > 180 ? 1 : 0, 1];
-            }
-        }
-
-        // Without peak azimuth, use standard arc determination
-        const angleDiff = (endAz - startAz + 360) % 360;
-        return [angleDiff > 180 ? 1 : 0, 1];
-    }
-
     let largeArcFlag = 0;
     let sweepFlag = 1;
 
     if (!forElevation) {
         // Get arc flags for SVG path
-        const result = determineArcToDisplay(startAngle, endAngle, peakAz);
+        const result = determineAzimuthArcFlags(startAngle, endAngle, peakAz);
         if (result && result.length === 2) {
             [largeArcFlag, sweepFlag] = result;
         }
