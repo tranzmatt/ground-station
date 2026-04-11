@@ -19,7 +19,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { DataGrid, gridClasses, useGridApiRef } from '@mui/x-data-grid';
+import { DataGrid, gridClasses } from '@mui/x-data-grid';
 import {
     Box,
     Chip,
@@ -46,7 +46,7 @@ import {
     Settings as SettingsIcon,
     Folder as FolderIcon,
 } from '@mui/icons-material';
-import { alpha, darken, lighten } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 import { useSocket } from '../common/socket.jsx';
 import {
     fetchScheduledObservations,
@@ -112,7 +112,6 @@ const TimeFormatter = React.memo(function TimeFormatter({ value }) {
 const ObservationsTable = () => {
     const dispatch = useDispatch();
     const { socket } = useSocket();
-    const apiRef = useGridApiRef();
     const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
     const [openStopConfirm, setOpenStopConfirm] = useState(false);
 
@@ -160,28 +159,6 @@ const ObservationsTable = () => {
             }
         }
     }, [columnVisibility]);
-
-    // Force row className re-evaluation every second to update colors in real-time
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            const rowIds = apiRef.current.getAllRowIds();
-            rowIds.forEach((rowId) => {
-                const rowNode = apiRef.current.getRowNode(rowId);
-                if (!rowNode) {
-                    return;
-                }
-                // Trigger row update to force getRowClassName re-evaluation
-                apiRef.current.updateRows([{
-                    id: rowId,
-                    _rowClassName: ''
-                }]);
-            });
-        }, 1000);
-
-        return () => {
-            clearInterval(intervalId);
-        };
-    }, []);
 
     const handleDelete = () => {
         if (selectedIds.length > 0 && socket) {
@@ -562,7 +539,6 @@ const ObservationsTable = () => {
 
             <Box sx={{ flexGrow: 1, width: '100%', minHeight: 0 }}>
                 <DataGrid
-                    apiRef={apiRef}
                     rows={observations}
                     columns={columns}
                     loading={loading}
@@ -573,29 +549,6 @@ const ObservationsTable = () => {
                         dispatch(
                             setSelectedObservationIds(toSelectedIds(newSelection))
                         );
-                    }}
-                    getRowClassName={(params) => {
-                        // If cancelled, always show as cancelled regardless of time
-                        if (params.row.status === 'cancelled') {
-                            return 'status-cancelled';
-                        }
-
-                        // Check if satellite is currently visible (between AOS and LOS)
-                        const now = new Date();
-                        const aosTime = params.row.pass?.event_start ? new Date(params.row.pass.event_start) : null;
-                        const losTime = params.row.pass?.event_end ? new Date(params.row.pass.event_end) : null;
-
-                        // Satellite is currently visible (above horizon)
-                        if (aosTime && losTime && now >= aosTime && now <= losTime) {
-                            return 'status-running';
-                        }
-
-                        // Pass has completed (satellite has set below horizon)
-                        if (losTime && now > losTime) {
-                            return 'status-past';
-                        }
-
-                        return `status-${params.row.status}`;
                     }}
                     columnVisibilityModel={columnVisibility}
                     initialState={{
@@ -619,59 +572,19 @@ const ObservationsTable = () => {
                             outline: 'none',
                         },
                         '& .MuiDataGrid-columnHeaders': {
-                            backgroundColor: 'background.paper',
-                            backgroundImage: (theme) => `linear-gradient(${alpha(
+                            backgroundColor: (theme) => alpha(
                                 theme.palette.primary.main,
                                 theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )}, ${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )})`,
+                            ),
                             borderBottom: (theme) => `2px solid ${alpha(theme.palette.primary.main, 0.45)}`,
-                            zIndex: 2,
                         },
                         '& .MuiDataGrid-columnHeader': {
-                            backgroundColor: 'inherit',
-                            backgroundImage: 'inherit',
-                        },
-                        '& .MuiDataGrid-filler, & .MuiDataGrid-scrollbarFiller': {
-                            backgroundColor: 'background.paper',
-                            backgroundImage: (theme) => `linear-gradient(${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )}, ${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )})`,
+                            backgroundColor: 'transparent',
                         },
                         '& .MuiDataGrid-columnHeaderTitle': {
                             fontSize: '0.8125rem',
                             fontWeight: 700,
                             letterSpacing: '0.02em',
-                        },
-                        [`& .${gridClasses.row}.status-running`]: {
-                            backgroundColor: (theme) => theme.palette.mode === 'dark'
-                                ? darken(theme.palette.success.main, 0.7)
-                                : lighten(theme.palette.success.main, 0.8),
-                        },
-                        [`& .${gridClasses.row}.status-failed`]: {
-                            backgroundColor: (theme) => theme.palette.mode === 'dark'
-                                ? darken(theme.palette.error.main, 0.7)
-                                : lighten(theme.palette.error.main, 0.8),
-                        },
-                        [`& .${gridClasses.row}.status-past`]: {
-                            backgroundColor: (theme) => theme.palette.mode === 'dark'
-                                ? 'rgba(255, 255, 255, 0.05)'
-                                : 'rgba(0, 0, 0, 0.04)',
-                            opacity: 0.6,
-                            textDecoration: 'line-through',
-                        },
-                        [`& .${gridClasses.row}.status-cancelled`]: {
-                            backgroundColor: (theme) => theme.palette.mode === 'dark'
-                                ? 'rgba(255, 255, 255, 0.05)'
-                                : 'rgba(0, 0, 0, 0.04)',
-                            opacity: 0.6,
-                            textDecoration: 'line-through',
                         },
                         '& .MuiDataGrid-overlay': {
                             fontSize: '0.875rem',

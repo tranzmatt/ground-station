@@ -22,7 +22,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Box, Paper, Typography, Chip, Stack, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import { AccessTime, RadioButtonChecked, Satellite, Router, Visibility, Cancel, Stop } from '@mui/icons-material';
 import { useSocket } from '../common/socket.jsx';
-import { cancelRunningObservation, setDialogOpen, setSelectedObservation } from './scheduler-slice.jsx';
+import {
+    cancelRunningObservation,
+    setDialogOpen,
+    setMonitoredSatelliteDialogOpen,
+    setSelectedMonitoredSatellite,
+    setSelectedObservation
+} from './scheduler-slice.jsx';
 import { getFlattenedTasks, getSessionSdrs } from './session-utils.js';
 import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
 import { formatTime as formatTimeHelper } from '../../utils/date-time.js';
@@ -87,6 +93,11 @@ export default function ObservationStatusBanner() {
     const handleCreateObservation = () => {
         dispatch(setSelectedObservation(null));
         dispatch(setDialogOpen(true));
+    };
+
+    const handleCreateMonitoredSatellite = () => {
+        dispatch(setSelectedMonitoredSatellite(null));
+        dispatch(setMonitoredSatelliteDialogOpen(true));
     };
 
 
@@ -166,24 +177,57 @@ export default function ObservationStatusBanner() {
                     borderLeft: '4px solid #9e9e9e',
                 }}
             >
-                <Stack direction="row" alignItems="center" spacing={2}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Satellite sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        <Typography variant="body2" fontWeight={600} color="text.secondary">
-                            NO SCHEDULED OBSERVATIONS
-                        </Typography>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                        No active or upcoming observations scheduled
-                    </Typography>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={handleCreateObservation}
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        justifyContent: 'space-between',
+                        gap: 2,
+                    }}
+                >
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        spacing={2}
+                        sx={{ minWidth: 0 }}
                     >
-                        Create observation
-                    </Button>
-                </Stack>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Satellite sx={{ color: 'text.secondary', fontSize: 20 }} />
+                            <Typography variant="body2" fontWeight={600} color="text.secondary">
+                                NO SCHEDULED OBSERVATIONS
+                            </Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                            No active or upcoming observations scheduled
+                        </Typography>
+                    </Stack>
+                    <Box
+                        sx={{
+                            marginLeft: { xs: 0, sm: 'auto' },
+                            width: { xs: '100%', sm: 'auto' },
+                            display: 'flex',
+                            gap: 1,
+                            justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+                            flexWrap: 'wrap',
+                        }}
+                    >
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={handleCreateMonitoredSatellite}
+                        >
+                            Add monitored satellite
+                        </Button>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={handleCreateObservation}
+                        >
+                            Create observation
+                        </Button>
+                    </Box>
+                </Box>
             </Paper>
         );
     }
@@ -221,7 +265,13 @@ export default function ObservationStatusBanner() {
                 borderLeft: isRunning ? '4px solid #4caf50' : '4px solid #2196f3',
             }}
         >
-            <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap" sx={{ position: 'relative', pr: 10 }}>
+            <Stack
+                direction="row"
+                alignItems="center"
+                spacing={2}
+                flexWrap="wrap"
+                sx={{ position: 'relative', pr: { xs: 0, md: 10 } }}
+            >
                 {/* Status indicator */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {isRunning ? (
@@ -235,10 +285,10 @@ export default function ObservationStatusBanner() {
                 </Box>
 
                 {/* Satellite name */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography variant="body1" fontWeight={600}>
-                        {observation.satellite?.name || 'Unknown'}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Typography variant="body1" fontWeight={600}>
+                            {observation.satellite?.name || 'Unknown'}
+                        </Typography>
                     <Typography variant="body2" color="text.secondary">
                         ({observation.satellite?.norad_id || 'N/A'})
                     </Typography>
@@ -315,9 +365,20 @@ export default function ObservationStatusBanner() {
                     </Typography>
                 )}
 
-                {/* Cancel/Stop button - absolutely positioned to always float right */}
+                {/* Cancel/Stop button */}
                 {observation && (
-                    <Box sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                    <Box
+                        sx={{
+                            position: { xs: 'static', md: 'absolute' },
+                            right: { md: 0 },
+                            top: { md: '50%' },
+                            transform: { md: 'translateY(-50%)' },
+                            width: { xs: '100%', md: 'auto' },
+                            mt: { xs: 1, md: 0 },
+                            display: 'flex',
+                            justifyContent: { xs: 'flex-end', md: 'flex-start' },
+                        }}
+                    >
                         <Tooltip title={isRunning ? 'Stop observation' : 'Abort scheduled observation'}>
                             <Button
                                 variant="outlined"

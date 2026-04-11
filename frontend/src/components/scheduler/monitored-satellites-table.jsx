@@ -377,16 +377,6 @@ const MonitoredSatellitesTable = () => {
                     }}
                     sx={{
                         border: 0,
-                        '& .MuiDataGrid-main, & .MuiDataGrid-virtualScroller, & .MuiDataGrid-overlayWrapper, & .MuiDataGrid-overlayWrapperInner': {
-                            backgroundColor: 'background.paper',
-                            backgroundImage: (theme) => `linear-gradient(${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )}, ${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )})`,
-                        },
                         [`& .${gridClasses.cell}:focus, & .${gridClasses.cell}:focus-within`]: {
                             outline: 'none',
                         },
@@ -394,30 +384,14 @@ const MonitoredSatellitesTable = () => {
                             outline: 'none',
                         },
                         '& .MuiDataGrid-columnHeaders': {
-                            backgroundColor: 'background.paper',
-                            backgroundImage: (theme) => `linear-gradient(${alpha(
+                            backgroundColor: (theme) => alpha(
                                 theme.palette.primary.main,
                                 theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )}, ${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )})`,
+                            ),
                             borderBottom: (theme) => `2px solid ${alpha(theme.palette.primary.main, 0.45)}`,
-                            zIndex: 2,
                         },
                         '& .MuiDataGrid-columnHeader': {
-                            backgroundColor: 'inherit',
-                            backgroundImage: 'inherit',
-                        },
-                        '& .MuiDataGrid-filler, & .MuiDataGrid-scrollbarFiller': {
-                            backgroundColor: 'background.paper',
-                            backgroundImage: (theme) => `linear-gradient(${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )}, ${alpha(
-                                theme.palette.primary.main,
-                                theme.palette.mode === 'dark' ? 0.18 : 0.10
-                            )})`,
+                            backgroundColor: 'transparent',
                         },
                         '& .MuiDataGrid-columnHeaderTitle': {
                             fontSize: '0.8125rem',
