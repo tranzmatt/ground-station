@@ -15,6 +15,7 @@ const TransmittersDialog = ({
     variant = 'elevated',
     maxWidth = 'xl',
     fullWidth = true,
+    widthOffsetPx = 0,
 }) => {
     const [actionsTarget, setActionsTarget] = useState(null);
     const isPaper = variant === 'paper';
@@ -30,6 +31,9 @@ const TransmittersDialog = ({
                 sx: {
                     backgroundColor: isPaper ? 'background.paper' : elevatedBackground,
                     border: (theme) => `1px solid ${theme.palette.divider}`,
+                    ...(maxWidth === 'xl' && widthOffsetPx
+                        ? { maxWidth: (theme) => `${theme.breakpoints.values.xl + widthOffsetPx}px` }
+                        : null),
                     ...(isPaper ? { borderRadius: 2 } : null),
                 },
             }}

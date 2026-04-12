@@ -1120,6 +1120,7 @@ const SatelliteTable = React.memo(function SatelliteTable() {
                 })}
                 satelliteData={clickedSatellite}
                 variant="paper"
+                widthOffsetPx={20}
             />
         </Box>
     );
