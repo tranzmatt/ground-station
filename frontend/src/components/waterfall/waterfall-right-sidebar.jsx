@@ -144,8 +144,6 @@ const WaterfallRightSidebar = ({ workerRef, waterfallControlRef, dimensions }) =
                     min={MIN_ZOOM}
                     max={MAX_ZOOM}
                     step={ZOOM_STEP}
-                    valueLabelDisplay="auto"
-                    valueLabelFormat={(value) => `${Number(value).toFixed(1)}x`}
                     sx={{
                         width: '24px',
                         margin: '0 auto',
@@ -164,13 +162,6 @@ const WaterfallRightSidebar = ({ workerRef, waterfallControlRef, dimensions }) =
                             width: 9,
                             opacity: 0.28,
                             color: 'text.secondary',
-                        },
-                        '& .MuiSlider-valueLabel': {
-                            fontSize: '0.7rem',
-                            fontFamily: 'Monospace',
-                            backgroundColor: theme.palette.background.default,
-                            color: theme.palette.text.primary,
-                            border: `1px solid ${theme.palette.border.main}`,
                         },
                     }}
                 />
@@ -271,14 +262,12 @@ const WaterfallRightSidebar = ({ workerRef, waterfallControlRef, dimensions }) =
                     min={-120}
                     max={30}
                     step={1}
-                    valueLabelDisplay="auto"
-                    valueLabelFormat={(value) => `${value} dB`}
                     sx={{
                         width: '24px',
                         margin: '0 auto',
                         flex: 1,
                         minHeight: 90,
-                        color: autoDBRange ? 'success.main' : 'info.main',
+                        color: 'primary.main',
                         '& .MuiSlider-thumb': {
                             width: 22,
                             height: 22,
@@ -291,13 +280,6 @@ const WaterfallRightSidebar = ({ workerRef, waterfallControlRef, dimensions }) =
                             width: 9,
                             opacity: 0.28,
                             color: 'text.secondary',
-                        },
-                        '& .MuiSlider-valueLabel': {
-                            fontSize: '0.7rem',
-                            fontFamily: 'Monospace',
-                            backgroundColor: theme.palette.background.default,
-                            color: theme.palette.text.primary,
-                            border: `1px solid ${theme.palette.border.main}`,
                         },
                     }}
                 />
