@@ -342,7 +342,7 @@ const MonitoredSatellitesTable = () => {
     ];
 
     return (
-        <Paper elevation={3} sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
                 Monitored Satellites
             </Typography>
@@ -352,8 +352,9 @@ const MonitoredSatellitesTable = () => {
                 Satellites in this list will automatically generate scheduled observations for all upcoming passes that meet the specified criteria (minimum elevation, lookahead window).
             </Alert>
 
-            <Box sx={{ flexGrow: 1, width: '100%', minHeight: 0 }}>
+            <Box sx={{ width: '100%' }}>
                 <DataGrid
+                    autoHeight
                     rows={monitoredSatellites}
                     columns={columns}
                     loading={loading}

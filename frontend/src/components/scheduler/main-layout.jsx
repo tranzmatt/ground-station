@@ -51,14 +51,14 @@ export default function ScheduledObservationsLayout() {
                     gap: 2,
                     minHeight: 0,
                     gridTemplateRows: {
-                        xs: 'minmax(520px, 45dvh) minmax(520px, 1fr)',
-                        lg: 'minmax(520px, 46vh) minmax(520px, 1fr)',
+                        xs: 'auto minmax(0, 1fr)',
+                        lg: 'auto minmax(0, 1fr)',
                     },
                     flex: 1,
                 }}
             >
                 {/* Monitored Satellites - Top Section */}
-                <Box sx={{ minHeight: 0, overflow: 'hidden' }}>
+                <Box sx={{ minHeight: 0 }}>
                     <MonitoredSatellitesTable />
                 </Box>
 
