@@ -153,25 +153,14 @@ def uhd_worker_process(
 
         def _set_uhd_rx_freq(desired_center_hz: float, offset_hz: float) -> float:
             """
-            Tune UHD with optional LO offset while keeping baseband centered on desired_center_hz.
+            Tune UHD to hardware RF center with converter offset applied.
+            This intentionally avoids DSP recentering to match Soapy/RTL behavior:
+            changing offset moves received spectrum unless center/VFO is also adjusted.
 
             Returns:
                 float: Frequency reported by UHD after tuning.
             """
-            if offset_hz != 0.0:
-                # Prefer UHD's explicit LO-offset TuneRequest constructor.
-                # This keeps the final digital baseband centered at desired_center_hz.
-                try:
-                    tune_request = uhd.types.TuneRequest(desired_center_hz, offset_hz)
-                    UHD.set_rx_freq(tune_request, channel)
-                except TypeError:
-                    # Fallback for UHD bindings without the 2-arg TuneRequest signature.
-                    tune_request = uhd.types.TuneRequest(desired_center_hz + offset_hz)
-                    tune_request.rf_freq = desired_center_hz + offset_hz
-                    tune_request.dsp_freq = -offset_hz
-                    UHD.set_rx_freq(tune_request, channel)
-            else:
-                UHD.set_rx_freq(uhd.types.TuneRequest(desired_center_hz), channel)
+            UHD.set_rx_freq(uhd.types.TuneRequest(desired_center_hz + offset_hz), channel)
             return UHD.get_rx_freq(channel)
 
         UHD.set_rx_rate(sample_rate, channel)
@@ -510,9 +499,7 @@ def uhd_worker_process(
                                         "center_freq": logical_center_freq,
                                         "logical_center_freq_hz": logical_center_freq,
                                         "rf_center_freq_hz": actual_freq,
-                                        "dsp_shift_hz": (
-                                            -offset_freq if offset_freq != 0.0 else 0.0
-                                        ),
+                                        "dsp_shift_hz": 0.0,
                                         "offset_freq_hz": offset_freq,
                                         "sample_rate": actual_rate,
                                         "timestamp": timestamp,
@@ -540,9 +527,7 @@ def uhd_worker_process(
                                         "center_freq": logical_center_freq,
                                         "logical_center_freq_hz": logical_center_freq,
                                         "rf_center_freq_hz": actual_freq,
-                                        "dsp_shift_hz": (
-                                            -offset_freq if offset_freq != 0.0 else 0.0
-                                        ),
+                                        "dsp_shift_hz": 0.0,
                                         "offset_freq_hz": offset_freq,
                                         "sample_rate": actual_rate,
                                         "timestamp": timestamp,
