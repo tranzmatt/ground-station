@@ -14,12 +14,12 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from celestial.horizons import fetch_celestial_vectors
 from celestial.solarsystem import compute_solar_system_snapshot
 
-CACHE_TTL_SECONDS = 120
+CACHE_TTL_SECONDS = 86400
 DEFAULT_CELESTIAL_TARGETS: List[Dict[str, str]] = []
 
 
@@ -80,9 +80,29 @@ def _normalize_targets(data: Optional[Dict[str, Any]]) -> List[Dict[str, str]]:
     return normalized
 
 
+def _parse_projection_options(data: Optional[Dict[str, Any]]) -> Tuple[int, int, int]:
+    if not data:
+        return 24, 24, 60
+
+    def parse_int(name: str, default: int, low: int, high: int) -> int:
+        try:
+            value = int(data.get(name, default))
+        except (TypeError, ValueError):
+            return default
+        return max(low, min(high, value))
+
+    past_hours = parse_int("past_hours", 24, 1, 24 * 365)
+    future_hours = parse_int("future_hours", 24, 1, 24 * 365)
+    step_minutes = parse_int("step_minutes", 60, 5, 6 * 60)
+    return past_hours, future_hours, step_minutes
+
+
 async def _fetch_celestial_with_cache(
     targets: List[Dict[str, str]],
     epoch: datetime,
+    past_hours: int,
+    future_hours: int,
+    step_minutes: int,
     force_refresh: bool,
     logger,
 ) -> List[Dict[str, Any]]:
@@ -92,12 +112,13 @@ async def _fetch_celestial_with_cache(
     for target in targets:
         command = target["command"]
         name = target["name"]
+        cache_key = f"{command}|p{past_hours}|f{future_hours}|s{step_minutes}"
 
         use_cached = False
         cached_entry: Optional[CacheEntry] = None
 
         with _celestial_cache_lock:
-            cached_entry = _celestial_cache.get(command)
+            cached_entry = _celestial_cache.get(cache_key)
             if (
                 cached_entry
                 and not force_refresh
@@ -114,13 +135,20 @@ async def _fetch_celestial_with_cache(
             continue
 
         try:
-            fetched = await asyncio.to_thread(fetch_celestial_vectors, command, epoch)
+            fetched = await asyncio.to_thread(
+                fetch_celestial_vectors,
+                command,
+                epoch,
+                past_hours,
+                future_hours,
+                step_minutes,
+            )
             fetched["name"] = name
             fetched["stale"] = False
             fetched["cache"] = "miss"
 
             with _celestial_cache_lock:
-                _celestial_cache[command] = CacheEntry(
+                _celestial_cache[cache_key] = CacheEntry(
                     payload=fetched,
                     fetched_at_monotonic=time.monotonic(),
                 )
@@ -131,7 +159,7 @@ async def _fetch_celestial_with_cache(
 
             fallback_payload: Optional[Dict[str, Any]] = None
             with _celestial_cache_lock:
-                cached_entry = _celestial_cache.get(command)
+                cached_entry = _celestial_cache.get(cache_key)
                 if cached_entry:
                     fallback_payload = dict(cached_entry.payload)
 
@@ -163,9 +191,18 @@ async def build_celestial_scene(
     """Build a scene payload for UI rendering and backend sharing."""
     epoch = _parse_epoch(data)
     targets = _normalize_targets(data)
+    past_hours, future_hours, step_minutes = _parse_projection_options(data)
 
     solar_meta, planets = compute_solar_system_snapshot(epoch)
-    celestial = await _fetch_celestial_with_cache(targets, epoch, force_refresh, logger)
+    celestial = await _fetch_celestial_with_cache(
+        targets,
+        epoch,
+        past_hours,
+        future_hours,
+        step_minutes,
+        force_refresh,
+        logger,
+    )
 
     return {
         "success": True,
@@ -183,6 +220,86 @@ async def build_celestial_scene(
                 "solar_system": solar_meta,
                 "celestial_source": "horizons",
                 "cache_ttl_seconds": CACHE_TTL_SECONDS,
+                "projection": {
+                    "past_hours": past_hours,
+                    "future_hours": future_hours,
+                    "step_minutes": step_minutes,
+                },
+            },
+        },
+    }
+
+
+async def build_solar_system_scene(
+    data: Optional[Dict[str, Any]],
+    logger,
+) -> Dict[str, Any]:
+    """Build only the offline solar system portion for fast initial render."""
+    epoch = _parse_epoch(data)
+    past_hours, future_hours, step_minutes = _parse_projection_options(data)
+    solar_meta, planets = compute_solar_system_snapshot(epoch)
+
+    return {
+        "success": True,
+        "data": {
+            "timestamp_utc": epoch.isoformat(),
+            "frame": "heliocentric-ecliptic",
+            "center": "sun",
+            "units": {
+                "position": "au",
+                "velocity": "au/day",
+            },
+            "planets": planets,
+            "meta": {
+                "solar_system": solar_meta,
+                "projection": {
+                    "past_hours": past_hours,
+                    "future_hours": future_hours,
+                    "step_minutes": step_minutes,
+                },
+            },
+        },
+    }
+
+
+async def build_celestial_tracks(
+    data: Optional[Dict[str, Any]],
+    logger,
+    force_refresh: bool = False,
+) -> Dict[str, Any]:
+    """Build only Horizons-backed tracked celestial objects."""
+    epoch = _parse_epoch(data)
+    targets = _normalize_targets(data)
+    past_hours, future_hours, step_minutes = _parse_projection_options(data)
+    celestial = await _fetch_celestial_with_cache(
+        targets,
+        epoch,
+        past_hours,
+        future_hours,
+        step_minutes,
+        force_refresh,
+        logger,
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "timestamp_utc": epoch.isoformat(),
+            "frame": "heliocentric-ecliptic",
+            "center": "sun",
+            "units": {
+                "position": "au",
+                "velocity": "au/day",
+            },
+            "celestial": celestial,
+            "meta": {
+                "celestial_source": "horizons",
+                "cache_ttl_seconds": CACHE_TTL_SECONDS,
+                "projection": {
+                    "past_hours": past_hours,
+                    "future_hours": future_hours,
+                    "step_minutes": step_minutes,
+                },
             },
         },
     }

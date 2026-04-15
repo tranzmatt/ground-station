@@ -1,7 +1,6 @@
 import React, { useMemo, useEffect, useCallback, useState } from 'react';
 import {
     Autocomplete,
-    Badge,
     Box,
     Button,
     Chip,
@@ -48,6 +47,18 @@ import {
 import { refreshMonitoredCelestialNow } from './celestial-slice.jsx';
 
 const STALE_MS = 5 * 60 * 1000;
+const HOUR_OPTIONS = [
+    { value: 6, label: '6h' },
+    { value: 12, label: '12h' },
+    { value: 24, label: '1d' },
+    { value: 72, label: '3d' },
+    { value: 168, label: '7d' },
+    { value: 336, label: '14d' },
+    { value: 720, label: '1mo' },
+    { value: 2160, label: '3mo' },
+    { value: 4320, label: '6mo' },
+    { value: 8760, label: '1y' },
+];
 
 const getStatusMeta = (entry) => {
     if (entry?.lastError) {
@@ -79,11 +90,16 @@ const formatLastRefresh = (value) => {
     return date.toLocaleString();
 };
 
-const CelestialTopBar = () => {
+const CelestialTopBar = ({
+    projectionPastHours = 24,
+    projectionFutureHours = 24,
+    onProjectionPastHoursChange,
+    onProjectionFutureHoursChange,
+}) => {
     const dispatch = useDispatch();
     const { socket } = useSocket();
     const monitoredState = useSelector((state) => state.celestialMonitored);
-    const celestialLoading = useSelector((state) => state.celestial?.loading);
+    const celestialLoading = useSelector((state) => state.celestial?.tracksLoading);
     const {
         monitored,
         selectedIds,
@@ -219,11 +235,22 @@ const CelestialTopBar = () => {
         await dispatch(
             refreshMonitoredCelestialNow({
                 socket,
-                ids: selectedIds,
+                ids: [],
+                payload: {
+                    past_hours: Number(projectionPastHours) || 24,
+                    future_hours: Number(projectionFutureHours) || 24,
+                    step_minutes: 60,
+                },
             }),
         );
         await dispatch(fetchMonitoredCelestial({ socket }));
-    }, [socket, selectedIds, celestialLoading, dispatch]);
+    }, [
+        socket,
+        celestialLoading,
+        dispatch,
+        projectionPastHours,
+        projectionFutureHours,
+    ]);
 
     const handleOpenEdit = (entry) => {
         setEditForm({
@@ -295,13 +322,6 @@ const CelestialTopBar = () => {
                     minHeight: '64px',
                 }}
             >
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 220 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        Monitored Celestial Targets
-                    </Typography>
-                    <Badge color="primary" badgeContent={monitoredCount} />
-                </Stack>
-
                 <Autocomplete
                     multiple
                     size="small"
@@ -326,6 +346,45 @@ const CelestialTopBar = () => {
                     sx={{ flex: 1, minWidth: 260 }}
                 />
 
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                            Past
+                        </Typography>
+                        <FormControl size="small" sx={{ minWidth: 84 }}>
+                            <Select
+                                value={projectionPastHours}
+                                onChange={(event) => onProjectionPastHoursChange?.(Number(event.target.value))}
+                                disabled={!socket || celestialLoading}
+                            >
+                                {HOUR_OPTIONS.map((option) => (
+                                    <MenuItem key={`past-${option.value}`} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                            Future
+                        </Typography>
+                        <FormControl size="small" sx={{ minWidth: 84 }}>
+                            <Select
+                                value={projectionFutureHours}
+                                onChange={(event) => onProjectionFutureHoursChange?.(Number(event.target.value))}
+                                disabled={!socket || celestialLoading}
+                            >
+                                {HOUR_OPTIONS.map((option) => (
+                                    <MenuItem key={`future-${option.value}`} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+                </Stack>
+
                 <Stack direction="row" spacing={1}>
                     <Button
                         size="small"
@@ -348,7 +407,7 @@ const CelestialTopBar = () => {
                         size="small"
                         variant="outlined"
                         startIcon={<RefreshIcon />}
-                        disabled={!socket || celestialLoading || (!selectedIds.length && enabledCount === 0)}
+                        disabled={!socket || celestialLoading || enabledCount === 0}
                         onClick={handleRefreshAll}
                     >
                         Refresh All

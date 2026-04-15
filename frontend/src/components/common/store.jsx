@@ -269,7 +269,7 @@ const celestialPersistConfig = {
 const celestialMonitoredPersistConfig = {
     key: 'celestialMonitored',
     storage,
-    whitelist: ['selectedIds']
+    whitelist: ['selectedIds', 'tableColumnVisibility', 'tablePageSize', 'tableSortModel']
 };
 
 

@@ -4,6 +4,7 @@ const normalizeMonitoredEntry = (entry) => ({
     id: entry?.id,
     displayName: entry?.display_name ?? entry?.displayName ?? '',
     command: entry?.command ?? '',
+    sourceMode: entry?.source_mode ?? entry?.sourceMode ?? null,
     enabled: entry?.enabled !== false,
     lastRefreshAt: entry?.last_refresh_at ?? entry?.lastRefreshAt ?? null,
     lastError: entry?.last_error ?? entry?.lastError ?? null,
@@ -144,6 +145,26 @@ const monitoredSlice = createSlice({
         loading: false,
         saveLoading: false,
         error: null,
+        openGridSettingsDialog: false,
+        tableColumnVisibility: {
+            displayName: true,
+            command: true,
+            source: true,
+            sourceMode: true,
+            enabled: true,
+            distanceFromSunAu: true,
+            speedKmS: true,
+            lightTimeMinutes: true,
+            lastRefreshAt: true,
+            lastRefreshAge: true,
+            projectionSpan: true,
+            cacheStatus: true,
+            stale: true,
+            sampleCount: true,
+            lastError: true,
+        },
+        tablePageSize: 10,
+        tableSortModel: [{ field: 'enabled', sort: 'desc' }, { field: 'displayName', sort: 'asc' }],
     },
     reducers: {
         openAddDialog: (state) => {
@@ -173,6 +194,18 @@ const monitoredSlice = createSlice({
         },
         setSelectedMonitoredIds: (state, action) => {
             state.selectedIds = action.payload || [];
+        },
+        setOpenGridSettingsDialog: (state, action) => {
+            state.openGridSettingsDialog = action.payload;
+        },
+        setMonitoredTableColumnVisibility: (state, action) => {
+            state.tableColumnVisibility = action.payload;
+        },
+        setMonitoredTablePageSize: (state, action) => {
+            state.tablePageSize = action.payload;
+        },
+        setMonitoredTableSortModel: (state, action) => {
+            state.tableSortModel = action.payload || [];
         },
     },
     extraReducers: (builder) => {
@@ -243,6 +276,10 @@ export const {
     setMonitoredFormField,
     setMonitoredFormError,
     setSelectedMonitoredIds,
+    setOpenGridSettingsDialog,
+    setMonitoredTableColumnVisibility,
+    setMonitoredTablePageSize,
+    setMonitoredTableSortModel,
 } = monitoredSlice.actions;
 
 export default monitoredSlice.reducer;

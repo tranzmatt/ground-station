@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, cast
 
 import crud.monitoredcelestial as crud_monitored
 from celestial.horizons import fetch_celestial_vectors
-from celestial.scene import build_celestial_scene
+from celestial.scene import build_celestial_scene, build_celestial_tracks, build_solar_system_scene
 from celestial.spacecraftindex import get_spacecraft_index, search_spacecraft_index
 from db import AsyncSessionLocal
 
@@ -124,6 +124,25 @@ async def get_celestial_scene(
     return cast(Dict[str, Any], scene)
 
 
+async def get_solar_system_scene(
+    sio: Any, data: Optional[Dict], logger: Any, sid: str
+) -> Dict[str, Any]:
+    """Fetch fast offline solar system scene."""
+    logger.debug(f"Fetching solar system scene, data: {data}")
+    scene = await build_solar_system_scene(data=cast(Optional[Dict[str, Any]], data), logger=logger)
+    return cast(Dict[str, Any], scene)
+
+
+async def get_celestial_tracks(
+    sio: Any, data: Optional[Dict], logger: Any, sid: str
+) -> Dict[str, Any]:
+    """Fetch Horizons-backed celestial tracks only."""
+    logger.debug(f"Fetching celestial tracks, data: {data}")
+    payload = await _build_scene_payload(data, logger)
+    tracks = await build_celestial_tracks(data=payload, logger=logger, force_refresh=False)
+    return cast(Dict[str, Any], tracks)
+
+
 async def refresh_celestial_now(
     sio: Any, data: Optional[Dict], logger: Any, sid: str
 ) -> Dict[str, Any]:
@@ -132,7 +151,13 @@ async def refresh_celestial_now(
     payload = await _build_scene_payload(data, logger)
     scene = await build_celestial_scene(data=payload, logger=logger, force_refresh=True)
     if scene.get("success"):
-        await sio.emit("celestial-scene-update", scene.get("data", {}))
+        scene_data_obj = scene.get("data")
+        scene_data = cast(
+            Dict[str, Any], scene_data_obj if isinstance(scene_data_obj, dict) else {}
+        )
+        await sio.emit("solar-system-scene-update", scene_data)
+        await sio.emit("celestial-tracks-update", scene_data)
+        await sio.emit("celestial-scene-update", scene_data)
     return cast(Dict[str, Any], scene)
 
 
@@ -179,12 +204,12 @@ async def refresh_monitored_celestial_now(
         logger.info(
             f"Force refreshing monitored celestial targets, count={len(payload['celestial'])}, selected={bool(selected_ids)}"
         )
-        scene = await build_celestial_scene(data=payload, logger=logger, force_refresh=True)
-        if not scene.get("success"):
-            return cast(Dict[str, Any], scene)
+        tracks = await build_celestial_tracks(data=payload, logger=logger, force_refresh=True)
+        if not tracks.get("success"):
+            return cast(Dict[str, Any], tracks)
 
         refreshed_at = datetime.now(timezone.utc)
-        scene_data_obj = scene.get("data")
+        scene_data_obj = tracks.get("data")
         scene_data: Dict[str, Any] = scene_data_obj if isinstance(scene_data_obj, dict) else {}
         scene_rows_obj = scene_data.get("celestial")
         scene_rows: List[Dict[str, Any]] = (
@@ -215,8 +240,8 @@ async def refresh_monitored_celestial_now(
                     f"Failed to persist monitored celestial refresh metadata: {update_result.get('error')}"
                 )
 
-        await sio.emit("celestial-scene-update", scene.get("data", {}))
-        return cast(Dict[str, Any], scene)
+        await sio.emit("celestial-tracks-update", tracks.get("data", {}))
+        return cast(Dict[str, Any], tracks)
 
 
 async def get_monitored_celestial(
@@ -387,6 +412,8 @@ def register_handlers(registry):
     registry.register_batch(
         {
             "get-celestial-scene": (get_celestial_scene, "data_request"),
+            "get-solar-system-scene": (get_solar_system_scene, "data_request"),
+            "get-celestial-tracks": (get_celestial_tracks, "data_request"),
             "refresh-celestial-now": (refresh_celestial_now, "data_submission"),
             "refresh-monitored-celestial-now": (
                 refresh_monitored_celestial_now,

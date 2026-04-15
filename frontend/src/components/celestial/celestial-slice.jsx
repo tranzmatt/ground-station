@@ -34,6 +34,36 @@ export const fetchCelestialScene = createAsyncThunk(
     }
 );
 
+export const fetchSolarSystemScene = createAsyncThunk(
+    'celestial/fetchSolarSystemScene',
+    async ({ socket, payload = {} }, { rejectWithValue }) => {
+        return await new Promise((resolve, reject) => {
+            socket.emit('data_request', 'get-solar-system-scene', payload, (response) => {
+                if (response?.success) {
+                    resolve(response.data);
+                } else {
+                    reject(rejectWithValue(response?.error || 'Failed to fetch solar system scene'));
+                }
+            });
+        });
+    }
+);
+
+export const fetchCelestialTracks = createAsyncThunk(
+    'celestial/fetchCelestialTracks',
+    async ({ socket, payload = {} }, { rejectWithValue }) => {
+        return await new Promise((resolve, reject) => {
+            socket.emit('data_request', 'get-celestial-tracks', payload, (response) => {
+                if (response?.success) {
+                    resolve(response.data);
+                } else {
+                    reject(rejectWithValue(response?.error || 'Failed to fetch celestial tracks'));
+                }
+            });
+        });
+    }
+);
+
 export const refreshCelestialScene = createAsyncThunk(
     'celestial/refreshScene',
     async ({ socket, payload = {} }, { rejectWithValue }) => {
@@ -51,9 +81,9 @@ export const refreshCelestialScene = createAsyncThunk(
 
 export const refreshMonitoredCelestialNow = createAsyncThunk(
     'celestial/refreshMonitoredNow',
-    async ({ socket, ids = [] }, { rejectWithValue }) => {
+    async ({ socket, ids = [], payload = {} }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'refresh-monitored-celestial-now', { ids }, (response) => {
+            socket.emit('data_submission', 'refresh-monitored-celestial-now', { ids, ...payload }, (response) => {
                 if (response?.success) {
                     resolve(response.data);
                 } else {
@@ -102,15 +132,29 @@ export const setCelestialMapSettings = createAsyncThunk(
 const celestialSlice = createSlice({
     name: 'celestial',
     initialState: {
-        scene: null,
+        solarScene: null,
+        celestialTracks: null,
         mapSettings: null,
-        loading: false,
+        solarLoading: false,
+        tracksLoading: false,
         error: null,
         lastUpdated: null,
     },
     reducers: {
         setCelestialSceneLive: (state, action) => {
-            state.scene = action.payload;
+            const payload = action.payload || {};
+            state.solarScene = payload;
+            state.celestialTracks = payload;
+            state.error = null;
+            state.lastUpdated = new Date().toISOString();
+        },
+        setSolarSceneLive: (state, action) => {
+            state.solarScene = action.payload;
+            state.error = null;
+            state.lastUpdated = new Date().toISOString();
+        },
+        setCelestialTracksLive: (state, action) => {
+            state.celestialTracks = action.payload;
             state.error = null;
             state.lastUpdated = new Date().toISOString();
         },
@@ -118,42 +162,76 @@ const celestialSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(fetchCelestialScene.pending, (state) => {
-                state.loading = true;
+                state.solarLoading = true;
+                state.tracksLoading = true;
                 state.error = null;
             })
             .addCase(fetchCelestialScene.fulfilled, (state, action) => {
-                state.loading = false;
-                state.scene = action.payload;
+                state.solarLoading = false;
+                state.tracksLoading = false;
+                state.solarScene = action.payload;
+                state.celestialTracks = action.payload;
                 state.lastUpdated = new Date().toISOString();
             })
             .addCase(fetchCelestialScene.rejected, (state, action) => {
-                state.loading = false;
+                state.solarLoading = false;
+                state.tracksLoading = false;
+                state.error = action.payload || action.error?.message || 'Unknown error';
+            })
+            .addCase(fetchSolarSystemScene.pending, (state) => {
+                state.solarLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchSolarSystemScene.fulfilled, (state, action) => {
+                state.solarLoading = false;
+                state.solarScene = action.payload;
+                state.lastUpdated = new Date().toISOString();
+            })
+            .addCase(fetchSolarSystemScene.rejected, (state, action) => {
+                state.solarLoading = false;
+                state.error = action.payload || action.error?.message || 'Unknown error';
+            })
+            .addCase(fetchCelestialTracks.pending, (state) => {
+                state.tracksLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchCelestialTracks.fulfilled, (state, action) => {
+                state.tracksLoading = false;
+                state.celestialTracks = action.payload;
+                state.lastUpdated = new Date().toISOString();
+            })
+            .addCase(fetchCelestialTracks.rejected, (state, action) => {
+                state.tracksLoading = false;
                 state.error = action.payload || action.error?.message || 'Unknown error';
             })
             .addCase(refreshCelestialScene.pending, (state) => {
-                state.loading = true;
+                state.solarLoading = true;
+                state.tracksLoading = true;
                 state.error = null;
             })
             .addCase(refreshCelestialScene.fulfilled, (state, action) => {
-                state.loading = false;
-                state.scene = action.payload;
+                state.solarLoading = false;
+                state.tracksLoading = false;
+                state.solarScene = action.payload;
+                state.celestialTracks = action.payload;
                 state.lastUpdated = new Date().toISOString();
             })
             .addCase(refreshCelestialScene.rejected, (state, action) => {
-                state.loading = false;
+                state.solarLoading = false;
+                state.tracksLoading = false;
                 state.error = action.payload || action.error?.message || 'Unknown error';
             })
             .addCase(refreshMonitoredCelestialNow.pending, (state) => {
-                state.loading = true;
+                state.tracksLoading = true;
                 state.error = null;
             })
             .addCase(refreshMonitoredCelestialNow.fulfilled, (state, action) => {
-                state.loading = false;
-                state.scene = action.payload;
+                state.tracksLoading = false;
+                state.celestialTracks = action.payload;
                 state.lastUpdated = new Date().toISOString();
             })
             .addCase(refreshMonitoredCelestialNow.rejected, (state, action) => {
-                state.loading = false;
+                state.tracksLoading = false;
                 state.error = action.payload || action.error?.message || 'Unknown error';
             })
             .addCase(getCelestialMapSettings.fulfilled, (state, action) => {
@@ -167,5 +245,5 @@ const celestialSlice = createSlice({
     },
 });
 
-export const { setCelestialSceneLive } = celestialSlice.actions;
+export const { setCelestialSceneLive, setSolarSceneLive, setCelestialTracksLive } = celestialSlice.actions;
 export default celestialSlice.reducer;

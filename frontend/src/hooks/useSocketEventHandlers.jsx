@@ -98,7 +98,11 @@ import {
     taskError,
     setTaskList,
 } from '../components/tasks/tasks-slice.jsx';
-import { setCelestialSceneLive } from '../components/celestial/celestial-slice.jsx';
+import {
+    setCelestialSceneLive,
+    setCelestialTracksLive,
+    setSolarSceneLive,
+} from '../components/celestial/celestial-slice.jsx';
 
 /**
  * Custom hook to handle all socket event listeners
@@ -810,6 +814,12 @@ export const useSocketEventHandlers = (socket) => {
         socket.on('celestial-scene-update', (data) => {
             dispatch(setCelestialSceneLive(data));
         });
+        socket.on('solar-system-scene-update', (data) => {
+            dispatch(setSolarSceneLive(data));
+        });
+        socket.on('celestial-tracks-update', (data) => {
+            dispatch(setCelestialTracksLive(data));
+        });
 
         // SoapySDR discovery events
         socket.on('soapysdr:discovery_started', (data) => {
@@ -902,6 +912,8 @@ export const useSocketEventHandlers = (socket) => {
             socket.off("background_task:error");
             socket.off("background_task:list");
             socket.off("celestial-scene-update");
+            socket.off("solar-system-scene-update");
+            socket.off("celestial-tracks-update");
             socket.off("observation-status-update");
             socket.off("scheduled-observations-changed");
             socket.off("soapysdr:discovery_started");

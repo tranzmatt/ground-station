@@ -3,7 +3,12 @@ import { Box, IconButton, Paper, Stack, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 
-const CelestialToolbar = ({ onRefresh, onFitAll, loading, disabled = false }) => {
+const CelestialToolbar = ({
+    onRefresh,
+    onFitAll,
+    loading,
+    disabled = false,
+}) => {
     return (
         <Paper
             elevation={1}

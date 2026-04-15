@@ -17,9 +17,11 @@ import requests
 HORIZONS_API_URL = "https://ssd.jpl.nasa.gov/api/horizons.api"
 
 
-def _extract_ephemeris_line(result_text: str) -> Optional[str]:
+def _extract_ephemeris_lines(result_text: str) -> List[str]:
     lines = result_text.splitlines()
     in_data = False
+    data_lines: List[str] = []
+
     for line in lines:
         if "$$SOE" in line:
             in_data = True
@@ -27,11 +29,30 @@ def _extract_ephemeris_line(result_text: str) -> Optional[str]:
         if "$$EOE" in line:
             break
         if in_data and line.strip():
-            return line.strip()
+            data_lines.append(line.strip())
+    return data_lines
+
+
+def _parse_horizons_datetime(raw_value: str) -> Optional[datetime]:
+    text = raw_value.strip()
+    if not text:
+        return None
+
+    formats = (
+        "A.D. %Y-%b-%d %H:%M:%S.%f",
+        "A.D. %Y-%b-%d %H:%M:%S",
+        "A.D. %Y-%b-%d %H:%M",
+    )
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
     return None
 
 
-def _parse_vector_line(line: str) -> Optional[Dict[str, List[float]]]:
+def _parse_vector_line(line: str) -> Optional[Dict[str, object]]:
     parts = [part.strip() for part in line.split(",")]
     if len(parts) < 8:
         return None
@@ -47,6 +68,7 @@ def _parse_vector_line(line: str) -> Optional[Dict[str, List[float]]]:
         return None
 
     return {
+        "epoch_utc": _parse_horizons_datetime(parts[1]),
         "position_xyz_au": [x_val, y_val, z_val],
         "velocity_xyz_au_per_day": [vx_val, vy_val, vz_val],
     }
@@ -55,12 +77,18 @@ def _parse_vector_line(line: str) -> Optional[Dict[str, List[float]]]:
 def fetch_celestial_vectors(
     command: str,
     epoch: datetime,
+    past_hours: int = 36,
+    future_hours: int = 36,
+    step_minutes: int = 120,
     timeout_seconds: float = 10.0,
 ) -> Dict[str, object]:
     """Fetch celestial state vectors from Horizons at a given epoch."""
     utc_epoch = epoch.astimezone(timezone.utc)
-    start_time = (utc_epoch - timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M")
-    stop_time = (utc_epoch + timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M")
+    bounded_past_hours = max(1, int(past_hours))
+    bounded_future_hours = max(1, int(future_hours))
+    bounded_step_minutes = max(5, int(step_minutes))
+    start_time = (utc_epoch - timedelta(hours=bounded_past_hours)).strftime("%Y-%m-%d %H:%M")
+    stop_time = (utc_epoch + timedelta(hours=bounded_future_hours)).strftime("%Y-%m-%d %H:%M")
 
     params = {
         "format": "json",
@@ -74,7 +102,7 @@ def fetch_celestial_vectors(
         "CSV_FORMAT": "YES",
         "START_TIME": f"'{start_time}'",
         "STOP_TIME": f"'{stop_time}'",
-        "STEP_SIZE": "'1 m'",
+        "STEP_SIZE": f"'{bounded_step_minutes} m'",
     }
 
     response = requests.get(HORIZONS_API_URL, params=params, timeout=timeout_seconds)
@@ -82,21 +110,50 @@ def fetch_celestial_vectors(
 
     payload = response.json()
     result_text = payload.get("result", "")
-    data_line = _extract_ephemeris_line(result_text)
+    data_lines = _extract_ephemeris_lines(result_text)
 
-    if not data_line:
+    if not data_lines:
         raise ValueError(f"No ephemeris data returned by Horizons for command '{command}'")
 
-    parsed = _parse_vector_line(data_line)
-    if not parsed:
+    parsed_rows = [row for row in (_parse_vector_line(line) for line in data_lines) if row]
+    if not parsed_rows:
         raise ValueError(f"Failed parsing Horizons vector line for command '{command}'")
+
+    # Use the closest parsed epoch to represent "current" state.
+    chosen_row = parsed_rows[0]
+    chosen_dt = chosen_row.get("epoch_utc")
+    chosen_delta = (
+        abs((chosen_dt - utc_epoch).total_seconds())
+        if isinstance(chosen_dt, datetime)
+        else float("inf")
+    )
+    for row in parsed_rows[1:]:
+        row_dt = row.get("epoch_utc")
+        if not isinstance(row_dt, datetime):
+            continue
+        row_delta = abs((row_dt - utc_epoch).total_seconds())
+        if row_delta < chosen_delta:
+            chosen_row = row
+            chosen_delta = row_delta
+
+    trajectory_points: List[List[float]] = []
+    for row in parsed_rows:
+        position = row.get("position_xyz_au")
+        if isinstance(position, list) and len(position) >= 3:
+            trajectory_points.append([float(position[0]), float(position[1]), float(position[2])])
 
     signature = payload.get("signature", {})
 
     return {
         "command": command,
-        "position_xyz_au": parsed["position_xyz_au"],
-        "velocity_xyz_au_per_day": parsed["velocity_xyz_au_per_day"],
+        "position_xyz_au": chosen_row["position_xyz_au"],
+        "velocity_xyz_au_per_day": chosen_row["velocity_xyz_au_per_day"],
+        "orbit_samples_xyz_au": trajectory_points,
+        "orbit_sampling": {
+            "past_hours": bounded_past_hours,
+            "future_hours": bounded_future_hours,
+            "step_minutes": bounded_step_minutes,
+        },
         "source": "horizons",
         "horizons_signature": signature,
         "fetched_at_utc": datetime.now(timezone.utc).isoformat(),

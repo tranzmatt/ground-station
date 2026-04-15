@@ -28,6 +28,30 @@ const formatAu = (value) => {
     return `${value.toFixed(2)} AU`;
 };
 
+const drawArrowHead = (ctx, fromX, fromY, toX, toY, color) => {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const length = Math.hypot(dx, dy);
+    if (length < 0.01) return;
+
+    const ux = dx / length;
+    const uy = dy / length;
+    const arrowLength = 8;
+    const arrowWidth = 5;
+    const baseX = toX - ux * arrowLength;
+    const baseY = toY - uy * arrowLength;
+    const perpX = -uy;
+    const perpY = ux;
+
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(baseX + perpX * arrowWidth, baseY + perpY * arrowWidth);
+    ctx.lineTo(baseX - perpX * arrowWidth, baseY - perpY * arrowWidth);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+};
+
 const SolarSystemCanvas = ({ scene, fitAllSignal = 0, initialViewport = null, onViewportCommit = null }) => {
     const theme = useTheme();
     const containerRef = useRef(null);
@@ -75,6 +99,10 @@ const SolarSystemCanvas = ({ scene, fitAllSignal = 0, initialViewport = null, on
             if (Array.isArray(body.position_xyz_au)) {
                 points.push(body.position_xyz_au);
             }
+            const samples = body.orbit_samples_xyz_au || [];
+            samples.forEach((sample) => {
+                if (Array.isArray(sample)) points.push(sample);
+            });
         });
 
         if (!points.length) {
@@ -223,6 +251,39 @@ const SolarSystemCanvas = ({ scene, fitAllSignal = 0, initialViewport = null, on
         });
 
         // Tracked objects from Horizons.
+        tracked.forEach((body) => {
+            const samples = body.orbit_samples_xyz_au || [];
+            if (!samples.length) return;
+
+            const strokeColor = body.stale
+                ? (theme.palette.mode === 'dark' ? 'rgba(239,71,111,0.45)' : 'rgba(196,47,89,0.45)')
+                : (theme.palette.mode === 'dark' ? 'rgba(6,214,160,0.42)' : 'rgba(0,130,96,0.42)');
+            ctx.beginPath();
+            samples.forEach((sample, index) => {
+                const [sx, sy] = toScreen(sample);
+                if (index === 0) ctx.moveTo(sx, sy);
+                else ctx.lineTo(sx, sy);
+            });
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Direction arrows at both endpoints in forward time direction.
+            if (samples.length >= 2) {
+                const [startX, startY] = toScreen(samples[0]);
+                const [startNextX, startNextY] = toScreen(samples[1]);
+                drawArrowHead(ctx, startX, startY, startNextX, startNextY, strokeColor);
+
+                const lastIndex = samples.length - 1;
+                const [endPrevX, endPrevY] = toScreen(samples[lastIndex - 1]);
+                const [endX, endY] = toScreen(samples[lastIndex]);
+                drawArrowHead(ctx, endPrevX, endPrevY, endX, endY, strokeColor);
+            }
+        });
+
+        // Tracked object markers from Horizons.
         ctx.font = '11px monospace';
         tracked.forEach((body) => {
             const [sx, sy] = toScreen(body.position_xyz_au);
@@ -301,13 +362,36 @@ const SolarSystemCanvas = ({ scene, fitAllSignal = 0, initialViewport = null, on
     };
 
     const handleWheel = (event) => {
+        if (!event.shiftKey) {
+            return;
+        }
         event.preventDefault();
         hasPersistentViewportRef.current = true;
         const direction = event.deltaY > 0 ? 0.92 : 1.08;
+        const container = containerRef.current;
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const width = rect.width;
+        const height = rect.height;
+
         setViewport((prev) => {
+            const nextZoom = clamp(prev.zoom * direction, MIN_ZOOM, MAX_ZOOM);
+            const prevCx = width / 2 + prev.panX;
+            const prevCy = height / 2 + prev.panY;
+
+            // Keep world position under cursor fixed while zooming.
+            const worldX = (mouseX - prevCx) / prev.zoom;
+            const worldY = (prevCy - mouseY) / prev.zoom;
+            const nextCx = mouseX - worldX * nextZoom;
+            const nextCy = mouseY + worldY * nextZoom;
+
             const next = {
-                ...prev,
-                zoom: clamp(prev.zoom * direction, MIN_ZOOM, MAX_ZOOM),
+                zoom: nextZoom,
+                panX: nextCx - width / 2,
+                panY: nextCy - height / 2,
             };
             viewportRef.current = next;
             return next;
