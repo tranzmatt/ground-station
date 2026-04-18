@@ -426,12 +426,28 @@ const CelestialTopBar = ({
             }),
         );
         if (result.meta.requestStatus === 'fulfilled') {
+            const createdId = String(result?.payload?.id || '').trim();
             setAddFeedback(
                 targetType === 'mission'
                     ? `Added "${name}" using command "${cmd}".`
                     : `Added body target "${name}".`,
             );
             setSelectedCatalogEntry(null);
+
+            if (createdId) {
+                await dispatch(
+                    refreshMonitoredCelestialNow({
+                        socket,
+                        ids: [createdId],
+                        payload: {
+                            past_hours: Number(projectionPastHours) || 24,
+                            future_hours: Number(projectionFutureHours) || 24,
+                            step_minutes: 60,
+                        },
+                    }),
+                );
+                await dispatch(fetchMonitoredCelestial({ socket }));
+            }
         }
     };
 
