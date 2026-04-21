@@ -24,7 +24,7 @@ async def test_start_tracker_unparks_before_tracking_when_requested(monkeypatch)
     manager = _DummyTrackerManager({"rotator_state": "parked"})
     monkeypatch.setattr(
         "observations.tasks.trackerhandler.get_tracker_manager",
-        lambda: manager,
+        lambda _tracker_id: manager,
     )
 
     handler = TrackerHandler()
@@ -33,6 +33,7 @@ async def test_start_tracker_unparks_before_tracking_when_requested(monkeypatch)
         satellite={"norad_id": 25544, "group_id": "grp-1", "name": "ISS"},
         rotator_config={
             "id": "rot-1",
+            "tracker_id": "target-1",
             "tracking_enabled": True,
             "unpark_before_tracking": True,
         },
@@ -52,7 +53,7 @@ async def test_stop_tracker_parks_when_requested(monkeypatch):
     manager = _DummyTrackerManager({"rotator_state": "tracking"})
     monkeypatch.setattr(
         "observations.tasks.trackerhandler.get_tracker_manager",
-        lambda: manager,
+        lambda _tracker_id: manager,
     )
 
     handler = TrackerHandler()
@@ -60,6 +61,7 @@ async def test_stop_tracker_parks_when_requested(monkeypatch):
         observation_id="obs-2",
         rotator_config={
             "id": "rot-1",
+            "tracker_id": "target-1",
             "tracking_enabled": True,
             "park_after_observation": True,
         },
@@ -74,7 +76,7 @@ async def test_stop_tracker_leaves_rotator_connected_by_default(monkeypatch):
     manager = _DummyTrackerManager({"rotator_state": "tracking"})
     monkeypatch.setattr(
         "observations.tasks.trackerhandler.get_tracker_manager",
-        lambda: manager,
+        lambda _tracker_id: manager,
     )
 
     handler = TrackerHandler()
@@ -82,6 +84,7 @@ async def test_stop_tracker_leaves_rotator_connected_by_default(monkeypatch):
         observation_id="obs-3",
         rotator_config={
             "id": "rot-1",
+            "tracker_id": "target-1",
             "tracking_enabled": True,
             "park_after_observation": False,
         },

@@ -48,7 +48,7 @@ from server import runtimestate
 from session.service import session_service
 from session.tracker import session_tracker
 from tasks.registry import get_task
-from tracker.contracts import get_tracking_state_name
+from tracker.contracts import get_tracking_state_name, normalize_tracker_id
 from vfos.state import INTERNAL_VFO_NUMBER, VFOManager
 
 KNOWN_SATDUMP_PIPELINES = {
@@ -107,6 +107,14 @@ class ObservationExecutor:
     def _get_session_key(self, session: Dict[str, Any], session_index: int) -> str:
         sdr_id = session.get("sdr", {}).get("id") if isinstance(session, dict) else None
         return str(sdr_id) if sdr_id else f"session-{session_index}"
+
+    @staticmethod
+    def _resolve_tracker_id(rotator_config: Dict[str, Any]) -> str:
+        """Prefer explicit tracker_id; fallback to legacy rotator id when needed."""
+        tracker_id: str = normalize_tracker_id(rotator_config.get("tracker_id"))
+        if tracker_id:
+            return tracker_id
+        return str(normalize_tracker_id(rotator_config.get("id")))
 
     async def start_observation(self, observation_id: str) -> Dict[str, Any]:
         """
@@ -183,38 +191,47 @@ class ObservationExecutor:
             # 3. If rotator is required and currently parked, either unpark or cancel
             rotator_config = observation.get("rotator", {})
             if rotator_config.get("tracking_enabled") and rotator_config.get("id"):
-                state_name = get_tracking_state_name(rotator_config.get("id"))
-                async with AsyncSessionLocal() as session:
-                    tracking_state_reply = await trackingstate.get_tracking_state(
-                        session, state_name
-                    )
-                if tracking_state_reply.get("success"):
-                    tracking_value = (tracking_state_reply.get("data") or {}).get("value", {})
-                    rotator_state = str(tracking_value.get("rotator_state", "")).lower()
-                    if rotator_state == "parked":
-                        if not bool(rotator_config.get("unpark_before_tracking", False)):
-                            msg = (
-                                f"Rotator is parked; cancelling observation {observation_id} "
-                                f"(unpark_before_tracking is disabled)"
-                            )
-                            logger.warning(msg)
-                            await log_execution_event(observation_id, msg, "warning")
-                            await update_observation_status(
-                                self.sio, observation_id, STATUS_CANCELLED
-                            )
-                            await remove_scheduled_stop_job(observation_id)
-                            self._running_observations.discard(observation_id)
-                            return {"success": False, "error": msg}
-                        await log_execution_event(
-                            observation_id,
-                            "Rotator is parked; unpark_before_tracking is enabled, will unpark before tracking",
-                            "info",
-                        )
-                else:
+                tracker_id = self._resolve_tracker_id(rotator_config)
+                if not tracker_id:
                     logger.warning(
-                        f"Failed to fetch tracking state; proceeding with observation "
-                        f"{observation_id}: {tracking_state_reply.get('error')}"
+                        "Observation %s rotator config missing tracker_id; skipping parked-state precheck",
+                        observation_id,
                     )
+                else:
+                    state_name = get_tracking_state_name(tracker_id)
+                async with AsyncSessionLocal() as session:
+                    tracking_state_reply = (
+                        await trackingstate.get_tracking_state(session, state_name)
+                        if tracker_id
+                        else {"success": True, "data": None}
+                    )
+                    if tracking_state_reply.get("success"):
+                        tracking_value = (tracking_state_reply.get("data") or {}).get("value", {})
+                        rotator_state = str(tracking_value.get("rotator_state", "")).lower()
+                        if rotator_state == "parked":
+                            if not bool(rotator_config.get("unpark_before_tracking", False)):
+                                msg = (
+                                    f"Rotator is parked; cancelling observation {observation_id} "
+                                    f"(unpark_before_tracking is disabled)"
+                                )
+                                logger.warning(msg)
+                                await log_execution_event(observation_id, msg, "warning")
+                                await update_observation_status(
+                                    self.sio, observation_id, STATUS_CANCELLED
+                                )
+                                await remove_scheduled_stop_job(observation_id)
+                                self._running_observations.discard(observation_id)
+                                return {"success": False, "error": msg}
+                            await log_execution_event(
+                                observation_id,
+                                "Rotator is parked; unpark_before_tracking is enabled, will unpark before tracking",
+                                "info",
+                            )
+                    else:
+                        logger.warning(
+                            f"Failed to fetch tracking state; proceeding with observation "
+                            f"{observation_id}: {tracking_state_reply.get('error')}"
+                        )
 
             # 4. Check if SDRs are available (not in use by other sessions)
             for session_index, session in enumerate(sessions, start=1):

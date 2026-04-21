@@ -21,6 +21,23 @@ import { useTranslation } from 'react-i18next';
 import { DEFAULT_TRACKER_ID, resolveTrackerId } from './tracking-constants.js';
 
 const normalizeRotatorId = (candidate) => resolveTrackerId(candidate, '');
+const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
+
+const deriveNextTrackerSlotId = (rows = []) => {
+    let maxTargetNumber = 0;
+    rows.forEach((row) => {
+        const trackerId = resolveTrackerId(row?.trackerId, DEFAULT_TRACKER_ID);
+        const matched = trackerId.match(TARGET_SLOT_ID_PATTERN);
+        if (!matched) {
+            return;
+        }
+        const parsedNumber = Number(matched[1]);
+        if (Number.isFinite(parsedNumber) && parsedNumber > maxTargetNumber) {
+            maxTargetNumber = parsedNumber;
+        }
+    });
+    return `target-${Math.max(1, maxTargetNumber + 1)}`;
+};
 
 export function useTargetRotatorSelectionDialog() {
     const { t } = useTranslation('target');
@@ -148,6 +165,23 @@ export function useTargetRotatorSelectionDialog() {
         });
         return mapping;
     }, [usageRows]);
+
+    const resolveTrackerIdForRotator = React.useCallback((rotatorId) => {
+        const normalizedRotatorId = normalizeRotatorId(rotatorId);
+        if (!normalizedRotatorId) {
+            return DEFAULT_TRACKER_ID;
+        }
+        const rotatorUsage = usageByRotatorId[normalizedRotatorId] || [];
+        if (rotatorUsage.length > 0) {
+            return resolveTrackerId(rotatorUsage[0]?.trackerId, DEFAULT_TRACKER_ID);
+        }
+        const unassignedTracker = usageRows.find((row) => !row.rotatorId || row.rotatorId === 'none');
+        if (unassignedTracker?.trackerId) {
+            return resolveTrackerId(unassignedTracker.trackerId, DEFAULT_TRACKER_ID);
+        }
+        // If no existing assignment and no idle slot exists, allocate next slot id.
+        return deriveNextTrackerSlotId(usageRows);
+    }, [usageByRotatorId, usageRows]);
 
     const dialog = (
         <Dialog
@@ -319,7 +353,7 @@ export function useTargetRotatorSelectionDialog() {
                     onClick={() =>
                         closeWithResult({
                             rotatorId: pendingRotatorId,
-                            trackerId: resolveTrackerId(pendingRotatorId, DEFAULT_TRACKER_ID),
+                            trackerId: resolveTrackerIdForRotator(pendingRotatorId),
                         })
                     }
                 >

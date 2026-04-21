@@ -169,6 +169,25 @@ const cloneDefaultRigData = () => ({
     transmitters: [],
 });
 
+const resolveFallbackTrackerSlotId = (state) => {
+    const activeTrackerId = resolveTrackerId(state?.targetSatTrack?.trackerId, DEFAULT_TRACKER_ID);
+    if (activeTrackerId) {
+        return activeTrackerId;
+    }
+
+    const instances = Array.isArray(state?.trackerInstances?.instances)
+        ? state.trackerInstances.instances
+        : [];
+    const trackerIds = instances
+        .map((instance) => resolveTrackerId(instance?.tracker_id, DEFAULT_TRACKER_ID))
+        .filter(Boolean);
+    if (trackerIds.length > 0) {
+        return trackerIds[0];
+    }
+
+    return 'target-1';
+};
+
 const createDefaultTrackerView = () => ({
     trackingState: cloneDefaultTrackingState(),
     satelliteData: cloneDefaultSatelliteData(),
@@ -318,10 +337,7 @@ export const setTrackingStateInBackend = createAsyncThunk(
         const currentTrackingState = state?.targetSatTrack?.trackingState || {};
         const trackerId = resolveTrackerId(
             data?.tracker_id,
-            resolveTrackerId(
-                data?.rotator_id,
-                resolveTrackerId(state?.targetSatTrack?.trackerId, DEFAULT_TRACKER_ID)
-            )
+            resolveFallbackTrackerSlotId(state)
         );
         if (!trackerId) {
             return rejectWithValue({ message: 'tracker_id is required' });

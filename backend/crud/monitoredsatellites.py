@@ -29,6 +29,16 @@ from db.models import MonitoredSatellites, ScheduledObservations
 # Compiled regex patterns for parsing integrity errors
 UNIQUE_CONSTRAINT_PATTERN = re.compile(r"UNIQUE constraint failed: \w+\.(\w+)")
 FOREIGN_KEY_PATTERN = re.compile(r"FOREIGN KEY constraint failed")
+TRACKER_SLOT_ID_PATTERN = re.compile(r"^target-[1-9][0-9]*$")
+
+
+def _normalize_tracker_slot_id(candidate) -> str:
+    if candidate is None:
+        return ""
+    tracker_id = str(candidate).strip()
+    if not tracker_id or tracker_id.lower() == "none":
+        return ""
+    return tracker_id if TRACKER_SLOT_ID_PATTERN.fullmatch(tracker_id) else ""
 
 
 def _transform_to_db_format(data: dict) -> dict:
@@ -59,8 +69,15 @@ def _transform_to_db_format(data: dict) -> dict:
     }
 
     rotator_config = dict(data.get("rotator", {}) or {})
-    if rotator_config.get("tracker_id") in (None, "", "none") and rotator_config.get("id"):
-        rotator_config["tracker_id"] = str(rotator_config.get("id"))
+    tracker_id = _normalize_tracker_slot_id(rotator_config.get("tracker_id"))
+    if tracker_id:
+        rotator_config["tracker_id"] = tracker_id
+    else:
+        tracker_from_id = _normalize_tracker_slot_id(rotator_config.get("id"))
+        if tracker_from_id:
+            rotator_config["tracker_id"] = tracker_from_id
+        else:
+            rotator_config.pop("tracker_id", None)
 
     hardware_config = {
         "rotator": rotator_config,
@@ -114,12 +131,15 @@ def _transform_from_db_format(db_obj: dict) -> dict:
         updated_at = updated_at.isoformat()
 
     rotator_config = dict(hardware_config.get("rotator", {}) or {})
-    if rotator_config.get("tracker_id") in (None, "", "none"):
-        fallback_tracker_id = rotator_config.get("id")
-        if not fallback_tracker_id:
-            fallback_tracker_id = db_obj.get("rotator_id")
-        if fallback_tracker_id:
-            rotator_config["tracker_id"] = str(fallback_tracker_id)
+    tracker_id = _normalize_tracker_slot_id(rotator_config.get("tracker_id"))
+    if tracker_id:
+        rotator_config["tracker_id"] = tracker_id
+    else:
+        tracker_from_id = _normalize_tracker_slot_id(rotator_config.get("id"))
+        if tracker_from_id:
+            rotator_config["tracker_id"] = tracker_from_id
+        else:
+            rotator_config.pop("tracker_id", None)
 
     return {
         "id": db_obj.get("id"),

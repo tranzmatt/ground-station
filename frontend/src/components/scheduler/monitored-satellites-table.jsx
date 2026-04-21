@@ -277,7 +277,7 @@ const MonitoredSatellitesTable = () => {
             headerClassName: 'target-rotator-nowrap-header',
             renderCell: (params) => {
                 const rotator = params.value || {};
-                const trackerId = rotator?.tracker_id || rotator?.id || '';
+                const trackerId = rotator?.tracker_id || '';
                 const targetNumber = trackerId ? targetNumberByTrackerId[String(trackerId)] : null;
                 const targetLabel = targetNumber ? `Target ${targetNumber}` : 'Unassigned';
                 return (

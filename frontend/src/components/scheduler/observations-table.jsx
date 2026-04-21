@@ -393,7 +393,7 @@ const ObservationsTable = () => {
             filterable: false,
             renderCell: (params) => {
                 const rotator = params.row?.rotator || {};
-                const trackerId = rotator?.tracker_id || rotator?.id || '';
+                const trackerId = rotator?.tracker_id || '';
                 const targetNumber = trackerId ? targetNumberByTrackerId[String(trackerId)] : null;
                 const targetLabel = targetNumber ? `Target ${targetNumber}` : 'Unassigned';
                 const rotatorLabel = rotator?.tracking_enabled ? 'Tracking ON' : 'Tracking OFF';
