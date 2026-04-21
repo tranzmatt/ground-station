@@ -34,8 +34,9 @@ steps:
       DOCKER_HOST: tcp://192.168.60.98:2375
     when:
       event:
-        exclude:
-          - tag
+        - push
+      branch:
+        - main
     commands:
       # Extract version with proper debugging
       - VERSION_BASE=$(cat backend/server/version.json | grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
@@ -93,8 +94,9 @@ steps:
       DOCKER_HOST: tcp://192.168.60.52:2375
     when:
       event:
-        exclude:
-          - tag
+        - push
+      branch:
+        - main
     commands:
       # Extract version with proper debugging
       - VERSION_BASE=$(cat backend/server/version.json | grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
