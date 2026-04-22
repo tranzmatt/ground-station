@@ -252,6 +252,8 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
         const satNorad = view?.trackingState?.norad_id || 'none';
         const rotatorId = view?.selectedRotator || instance?.rotator_id || 'none';
         const isTracking = Boolean(view?.rigData?.tracking || view?.rotatorData?.tracking);
+        const satAz = Number.isFinite(view?.satelliteData?.position?.az) ? view.satelliteData.position.az : null;
+        const satEl = Number.isFinite(view?.satelliteData?.position?.el) ? view.satelliteData.position.el : null;
         return {
             trackerId: instanceTrackerId,
             targetNumber,
@@ -259,6 +261,8 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
             satNorad,
             rotatorId,
             isTracking,
+            satAz,
+            satEl,
         };
     }), [trackerInstances, trackerViews]);
 
@@ -381,26 +385,42 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
                                                 title={`Target ${option.targetNumber} | ${option.satName} | NORAD ${option.satNorad} | Rotator ${option.rotatorId}`}
                                                 arrow
                                             >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, maxWidth: 220 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, maxWidth: 230 }}>
                                                     <Box
                                                         sx={{
-                                                            width: 7,
-                                                            height: 7,
+                                                            width: 16,
+                                                            height: 16,
                                                             borderRadius: '50%',
                                                             bgcolor: option.isTracking ? 'success.light' : 'action.disabled',
                                                             flexShrink: 0,
                                                         }}
                                                     />
-                                                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.72rem' }}>
+                                                    <Typography variant="caption" sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1 }}>
                                                         T{option.targetNumber}
                                                     </Typography>
-                                                    <Typography
-                                                        variant="caption"
-                                                        noWrap
-                                                        sx={{ fontSize: '0.72rem', maxWidth: 150 }}
-                                                    >
-                                                        {shortName}
-                                                    </Typography>
+                                                    <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', maxWidth: 190 }}>
+                                                        <Typography
+                                                            variant="caption"
+                                                            noWrap
+                                                            sx={{ fontSize: '0.72rem', maxWidth: '100%', display: 'block', lineHeight: 1.1 }}
+                                                        >
+                                                            {shortName}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="caption"
+                                                            noWrap
+                                                            sx={{
+                                                                display: 'block',
+                                                                fontSize: '0.61rem',
+                                                                opacity: 0.9,
+                                                                maxWidth: '100%',
+                                                                fontFamily: 'monospace',
+                                                                lineHeight: 1.05,
+                                                            }}
+                                                        >
+                                                            {`Az ${option.satAz != null ? option.satAz.toFixed(1) : '--'}° • El ${option.satEl != null ? option.satEl.toFixed(1) : '--'}°`}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
                                             </Tooltip>
                                         }

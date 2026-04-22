@@ -21,6 +21,7 @@ import * as React from "react";
 import {useSocket} from "../common/socket.jsx";
 import {useDispatch, useSelector} from "react-redux";
 import {
+    setRotator,
     setTrackingStateInBackend,
     setRotatorConnecting,
     setRotatorDisconnecting,
@@ -30,7 +31,7 @@ import { toast } from "../../utils/toast-with-timestamp.jsx";
 import {getClassNamesBasedOnGridEditing, TitleBar} from "../common/common.jsx";
 import { useTranslation } from 'react-i18next';
 import Grid from "@mui/material/Grid";
-import {Box, Button, Chip, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, Tooltip} from "@mui/material";
+import {Box, Button, Chip, FormControl, IconButton, InputLabel, MenuItem, Select, Tooltip} from "@mui/material";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -84,6 +85,7 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
         trackerViews,
         trackerId: activeTrackerId,
     } = useSelector((state) => state.targetSatTrack);
+    const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
 
     const { rigs } = useSelector((state) => state.rigs);
     const { rotators } = useSelector((state) => state.rotators);
@@ -160,6 +162,24 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
         [rotators, effectiveSelectedRotator]
     );
 
+    const rotatorUsageById = React.useMemo(() => {
+        const usage = {};
+        trackerInstances.forEach((instance, index) => {
+            const trackerId = String(instance?.tracker_id || '');
+            if (!trackerId) return;
+            const targetNumber = Number(instance?.target_number || (index + 1));
+            const rotatorId = String(instance?.rotator_id || instance?.tracking_state?.rotator_id || 'none');
+            if (!rotatorId || rotatorId === 'none') return;
+            if (!usage[rotatorId]) usage[rotatorId] = [];
+            usage[rotatorId].push({
+                trackerId,
+                targetNumber,
+                noradId: instance?.tracking_state?.norad_id ?? null,
+            });
+        });
+        return usage;
+    }, [trackerInstances]);
+
     const rotatorStatusChip = React.useMemo(() => {
         if (!isSocketConnected) return { label: 'Offline', color: 'default' };
         if (!effectiveRotatorData?.connected) return { label: 'Disconnected', color: 'error' };
@@ -168,6 +188,15 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
         if (effectiveRotatorData?.parked) return { label: 'Parked', color: 'warning' };
         if (effectiveRotatorData?.stopped) return { label: 'Stopped', color: 'warning' };
         return { label: 'Connected', color: 'success' };
+    }, [isSocketConnected, effectiveRotatorData?.connected, effectiveRotatorData?.tracking, effectiveRotatorData?.slewing, effectiveRotatorData?.parked, effectiveRotatorData?.stopped]);
+    const rotatorStatusLedColor = React.useMemo(() => {
+        if (!isSocketConnected) return 'action.disabled';
+        if (!effectiveRotatorData?.connected) return 'error.main';
+        if (effectiveRotatorData?.tracking) return 'success.main';
+        if (effectiveRotatorData?.slewing) return 'warning.main';
+        if (effectiveRotatorData?.parked) return 'warning.main';
+        if (effectiveRotatorData?.stopped) return 'info.main';
+        return 'success.main';
     }, [isSocketConnected, effectiveRotatorData?.connected, effectiveRotatorData?.tracking, effectiveRotatorData?.slewing, effectiveRotatorData?.parked, effectiveRotatorData?.stopped]);
 
     const commandStateLabel = React.useMemo(() => {
@@ -323,6 +352,8 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
 
     function handleRotatorChange(event) {
         const newRotatorId = event.target.value;
+        // Optimistic UI update so selection reflects immediately while backend confirms.
+        dispatch(setRotator({ value: newRotatorId, trackerId: scopedTrackerId }));
         const newTrackingState = {
             ...effectiveTrackingState,
             tracker_id: scopedTrackerId,
@@ -348,26 +379,27 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
                 <Grid
                     size={{ xs: 12, sm: 12, md: 12 }}
                     sx={{
-                        px: 0.75,
-                        pt: 0.45,
-                        pb: 0.35,
-                        backgroundColor: 'background.default',
+                        px: 1.5,
+                        py: 1.05,
+                        background: (() => {
+                            if (!isSocketConnected) {
+                                return (theme) => `linear-gradient(135deg, ${theme.palette.overlay.light} 0%, ${theme.palette.overlay.main} 100%)`;
+                            }
+                            if (effectiveRotatorData?.tracking) {
+                                return (theme) => `linear-gradient(135deg, ${theme.palette.success.main}26 0%, ${theme.palette.success.main}0D 100%)`;
+                            }
+                            if (effectiveRotatorData?.slewing || effectiveRotatorData?.parked) {
+                                return (theme) => `linear-gradient(135deg, ${theme.palette.warning.main}26 0%, ${theme.palette.warning.main}0D 100%)`;
+                            }
+                            if (effectiveRotatorData?.connected) {
+                                return (theme) => `linear-gradient(135deg, ${theme.palette.info.main}26 0%, ${theme.palette.info.main}0D 100%)`;
+                            }
+                            return (theme) => `linear-gradient(135deg, ${theme.palette.error.main}26 0%, ${theme.palette.error.main}0D 100%)`;
+                        })(),
                         borderBottom: '1px solid',
                         borderColor: 'divider'
                     }}
                 >
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ minHeight: 24 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.2 }}>
-                            {t('rotator_control.title', { defaultValue: 'Rotator Control' })}
-                        </Typography>
-                        <Chip
-                            label={rotatorStatusChip.label}
-                            color={rotatorStatusChip.color}
-                            size="small"
-                            sx={{ height: 18, '& .MuiChip-label': { px: 0.75, fontSize: '0.66rem', fontWeight: 600 } }}
-                            variant={rotatorStatusChip.color === 'default' ? 'outlined' : 'filled'}
-                        />
-                    </Stack>
                     <Box
                         title={
                             `${selectedRotatorDevice ? `${selectedRotatorDevice.name} (${selectedRotatorDevice.host}:${selectedRotatorDevice.port})` : 'No rotator selected'} | ` +
@@ -376,38 +408,40 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
                             `Cmd ${commandStateLabel}` +
                             (activeRotatorCommand?.status === TRACKER_COMMAND_STATUS.FAILED && activeRotatorCommand?.reason ? ` | ${activeRotatorCommand.reason}` : '')
                         }
-                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0.45,
+                            minWidth: 0,
+                        }}
                     >
-                        <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            noWrap
-                            sx={{ display: 'block', fontSize: '0.66rem', lineHeight: 1.2, minWidth: 0, flex: 1 }}
-                        >
-                            {`${selectedRotatorDevice ? selectedRotatorDevice.name : 'No rotator'} | ${isSocketConnected ? 'Online' : 'Offline'}`}
-                        </Typography>
-                        <Box
-                            sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.4,
-                                flexShrink: 0,
-                                px: 0.5,
-                                py: '1px',
-                                borderRadius: 0.75,
-                                backgroundColor: 'action.hover'
-                            }}
-                        >
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.64rem', lineHeight: 1 }}>
-                                {`${lastUpdateAge}s`}
-                            </Typography>
-                            <Tooltip
-                                title={`Command: ${commandStateLabel}${activeRotatorCommand?.status === TRACKER_COMMAND_STATUS.FAILED && activeRotatorCommand?.reason ? ` (${activeRotatorCommand.reason})` : ''}`}
-                            >
-                                <Box component="span" sx={{ display: 'inline-flex' }}>
-                                    <commandStatusIcon.Icon sx={{ fontSize: '0.8rem', color: commandStatusIcon.color }} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 0, gap: 0.7 }}>
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
+                                <Box
+                                    sx={{
+                                        width: 9,
+                                        height: 9,
+                                        borderRadius: '50%',
+                                        mr: 0.8,
+                                        flexShrink: 0,
+                                        bgcolor: rotatorStatusLedColor,
+                                    }}
+                                />
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant="caption" noWrap sx={{ display: 'block', fontWeight: 800, fontSize: '0.72rem', lineHeight: 1.1 }}>
+                                        {selectedRotatorDevice ? selectedRotatorDevice.name : 'No rotator selected'}
+                                    </Typography>
+                                    <Typography variant="caption" noWrap sx={{ display: 'block', color: 'text.secondary', fontSize: '0.62rem', lineHeight: 1.1 }}>
+                                        {rotatorStatusChip.label}
+                                    </Typography>
                                 </Box>
-                            </Tooltip>
+                            </Box>
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0 }}>
+                                <commandStatusIcon.Icon sx={{ fontSize: '0.8rem', color: commandStatusIcon.color }} />
+                                <Typography variant="caption" sx={{ fontSize: '0.62rem', color: 'text.secondary' }}>
+                                    {`${lastUpdateAge}s`}
+                                </Typography>
+                            </Box>
                         </Box>
                     </Box>
                 </Grid>
@@ -420,20 +454,93 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
                                 <InputLabel htmlFor="rotator-select">{t('rotator_control_labels.rotator_label')}</InputLabel>
                                 <Select
                                     id="rotator-select"
-                                    value={rotators.length > 0 ? effectiveSelectedRotator : "none"}
+                                    value={rotators.some((rotator) => String(rotator.id) === String(effectiveSelectedRotator)) ? effectiveSelectedRotator : "none"}
                                     onChange={(event) => {
                                         handleRotatorChange(event);
+                                    }}
+                                    renderValue={(selected) => {
+                                        if (String(selected) === 'none') {
+                                            return t('rotator_control_labels.no_rotator_control');
+                                        }
+                                        const selectedRotator = rotators.find((rotator) => String(rotator.id) === String(selected));
+                                        if (!selectedRotator) {
+                                            return t('rotator_control_labels.no_rotator_control');
+                                        }
+                                        return (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                                <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
+                                                    {selectedRotator.name}
+                                                </Typography>
+                                                {(() => {
+                                                    const usageRows = rotatorUsageById[String(selectedRotator.id)] || [];
+                                                    const inUseByOthers = usageRows.filter((row) => row.trackerId !== scopedTrackerId);
+                                                    if (inUseByOthers.length === 0) return null;
+                                                    const targetSummary = inUseByOthers
+                                                        .slice(0, 2)
+                                                        .map((row) => `T${row.targetNumber}`)
+                                                        .join(',');
+                                                    return (
+                                                        <Chip
+                                                            size="small"
+                                                            color="warning"
+                                                            label={`In use ${targetSummary}`}
+                                                            sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0 }}
+                                                        />
+                                                    );
+                                                })()}
+                                                <Chip
+                                                    size="small"
+                                                    label={`${selectedRotator.host}:${selectedRotator.port}`}
+                                                    variant="outlined"
+                                                    sx={{ height: 18, fontSize: '0.62rem', fontFamily: 'monospace', flexShrink: 0 }}
+                                                />
+                                            </Box>
+                                        );
                                     }}
                                     size="small"
                                     label={t('rotator_control_labels.rotator_label')}>
                                     <MenuItem value="none">
-                                        {t('rotator_control_labels.no_rotator_control')}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                                {t('rotator_control_labels.no_rotator_control')}
+                                            </Typography>
+                                            <Chip
+                                                label="None"
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{ ml: 'auto', height: 18, fontSize: '0.62rem' }}
+                                            />
+                                        </Box>
                                     </MenuItem>
-                                    <MenuItem value="" disabled>
-                                        <em>{t('rotator_control_labels.select_rotator')}</em>
-                                    </MenuItem>
-                                    {rotators.map((rotators, index) => {
-                                        return <MenuItem value={rotators.id} key={index}>{rotators.name} ({rotators.host}:{rotators.port})</MenuItem>;
+                                    {rotators.map((rotator, index) => {
+                                        const usageRows = rotatorUsageById[String(rotator.id)] || [];
+                                        const inUseByOthers = usageRows.filter((row) => row.trackerId !== scopedTrackerId);
+                                        const inUseLabel = inUseByOthers.length > 0
+                                            ? `In use ${inUseByOthers.slice(0, 2).map((row) => `T${row.targetNumber}`).join(',')}`
+                                            : null;
+                                        return (
+                                            <MenuItem value={rotator.id} key={index} sx={{ py: 0.75 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                                    <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
+                                                        {rotator.name}
+                                                    </Typography>
+                                                    {inUseLabel && (
+                                                        <Chip
+                                                            size="small"
+                                                            color="warning"
+                                                            label={inUseLabel}
+                                                            sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0 }}
+                                                        />
+                                                    )}
+                                                    <Chip
+                                                        size="small"
+                                                        label={`${rotator.host}:${rotator.port}`}
+                                                        variant="outlined"
+                                                        sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0, fontFamily: 'monospace' }}
+                                                    />
+                                                </Box>
+                                            </MenuItem>
+                                        );
                                     })}
                                 </Select>
                             </FormControl>
@@ -657,7 +764,7 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
                                         fullWidth={true}
                                         variant="contained"
                                         color="success"
-                                        style={{height: '48px'}}
+                                        style={{height: '52px'}}
                                         onClick={() => {
                                             connectRotator()
                                         }}
@@ -676,7 +783,7 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
                                         fullWidth={true}
                                         variant="contained"
                                         color="error"
-                                        style={{height: '48px'}}
+                                        style={{height: '52px'}}
                                         onClick={() => {
                                              disconnectRotator()
                                         }}
@@ -695,7 +802,7 @@ const RotatorControl = React.memo(function RotatorControl({ trackerId: trackerId
                                         fullWidth={true}
                                         variant="contained"
                                         color="warning"
-                                        style={{height: '48px'}}
+                                        style={{height: '52px'}}
                                         onClick={() => {
                                             parkRotator()
                                         }}
