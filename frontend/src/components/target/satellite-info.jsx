@@ -220,23 +220,16 @@ const TargetSatelliteInfoIsland = () => {
                             bgcolor: satelliteData && satelliteData['details'] && satelliteData['details']['status'] === 'alive' ? 'success.main' : 'error.main',
                             boxShadow: (theme) => `0 0 8px ${satelliteData && satelliteData['details'] && satelliteData['details']['status'] === 'alive' ? theme.palette.success.main : theme.palette.error.main}`
                         }} />
-                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: '0.3px' }}>
-                                {satelliteData && satelliteData['details'] ? satelliteData['details']['name'] : "NO DATA"}
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography
+                                variant="subtitle1"
+                                noWrap
+                                sx={{ fontWeight: 700, letterSpacing: '0.3px' }}
+                            >
+                                {satelliteData && satelliteData['details']
+                                    ? `${satelliteData['details']['name']}${satelliteData['details']['name_other'] ? ` • ${satelliteData['details']['name_other']}` : ''}`
+                                    : "NO DATA"}
                             </Typography>
-                            {satelliteData && satelliteData['details'] && satelliteData['details']['name_other'] && (
-                                <Typography variant="caption" sx={{
-                                    color: 'text.disabled',
-                                    fontSize: '0.65rem',
-                                    display: 'block',
-                                    mt: -0.5,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    {satelliteData['details']['name_other']}
-                                </Typography>
-                            )}
                         </Box>
                     </Box>
                     {satelliteData && satelliteData['details'] && (
