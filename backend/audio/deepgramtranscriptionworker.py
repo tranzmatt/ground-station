@@ -269,21 +269,19 @@ class DeepgramTranscriptionWorker(TranscriptionWorker):
         except Exception as e:
             logger.warning(f"Keepalive error: {e}")
 
-    async def _send_audio_to_provider(self, audio_data: np.ndarray):
-        """Send audio to Deepgram WebSocket"""
+    def _prepare_audio_payload(self, audio_data: np.ndarray) -> bytes:
+        """Preprocess PCM in worker thread to avoid blocking asyncio loop."""
+        normalized = self._normalize_audio(audio_data, target_level=0.7)
+        resampled = self._resample_audio(normalized, target_rate=16000)
+        audio_int16 = np.clip(resampled * 32767, -32768, 32767).astype(np.int16)
+        return bytes(audio_int16.tobytes())
+
+    async def _send_audio_to_provider(self, audio_payload: bytes):
+        """Send prepared audio payload to Deepgram WebSocket"""
         if self.websocket is None:
             raise RuntimeError("Deepgram WebSocket not connected")
 
-        # Normalize and resample audio
-        normalized = self._normalize_audio(audio_data, target_level=0.7)
-        resampled = self._resample_audio(normalized, target_rate=16000)
-
-        # Convert to 16-bit PCM
-        audio_int16 = np.clip(resampled * 32767, -32768, 32767).astype(np.int16)
-        audio_bytes = audio_int16.tobytes()
-
-        # Send raw audio bytes
-        await self.websocket.send(audio_bytes)
+        await self.websocket.send(audio_payload)
 
     async def _receive_loop(self):
         """Receive transcription results from Deepgram"""
@@ -463,8 +461,8 @@ class DeepgramTranscriptionWorker(TranscriptionWorker):
         super().stop()
 
         # Close WebSocket connection
-        if self.websocket:
+        if self.websocket and self.provider_loop:
             try:
-                asyncio.run_coroutine_threadsafe(self._disconnect(), self.loop)
+                asyncio.run_coroutine_threadsafe(self._disconnect(), self.provider_loop)
             except Exception as e:
                 logger.error(f"Error closing Deepgram WebSocket: {e}")

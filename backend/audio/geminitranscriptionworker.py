@@ -215,19 +215,18 @@ class GeminiTranscriptionWorker(TranscriptionWorker):
         except Exception as e:
             logger.error(f"Error closing Gemini connection: {e}")
 
-    async def _send_audio_to_provider(self, audio_data: np.ndarray):
-        """Send audio to Gemini Live API"""
-        if self.gemini_session is None:
-            raise RuntimeError("Gemini session not established")
-
-        # Normalize and resample audio
+    def _prepare_audio_payload(self, audio_data: np.ndarray) -> str:
+        """Preprocess PCM in worker thread to avoid blocking asyncio loop."""
         normalized = self._normalize_audio(audio_data, target_level=0.7)
         resampled = self._resample_audio(normalized, target_rate=16000)
-
-        # Convert to 16-bit PCM
         audio_int16 = np.clip(resampled * 32767, -32768, 32767).astype(np.int16)
         audio_pcm = bytes(audio_int16.tobytes())
-        audio_b64 = base64.b64encode(audio_pcm).decode("utf-8")
+        return base64.b64encode(audio_pcm).decode("utf-8")
+
+    async def _send_audio_to_provider(self, audio_payload: str):
+        """Send prepared audio payload to Gemini Live API"""
+        if self.gemini_session is None:
+            raise RuntimeError("Gemini session not established")
 
         # Check if we need to flush (force partial transcription)
         current_time = time.time()
@@ -235,7 +234,7 @@ class GeminiTranscriptionWorker(TranscriptionWorker):
 
         # Stream audio
         await self.gemini_session.send(
-            input={"media_chunks": [{"data": audio_b64, "mime_type": "audio/pcm;rate=16000"}]},
+            input={"media_chunks": [{"data": audio_payload, "mime_type": "audio/pcm;rate=16000"}]},
             end_of_turn=should_flush,
         )
 
@@ -372,8 +371,8 @@ class GeminiTranscriptionWorker(TranscriptionWorker):
         super().stop()
 
         # Close Gemini session
-        if self.gemini_session_context:
+        if self.gemini_session_context and self.provider_loop:
             try:
-                asyncio.run_coroutine_threadsafe(self._disconnect(), self.loop)
+                asyncio.run_coroutine_threadsafe(self._disconnect(), self.provider_loop)
             except Exception as e:
                 logger.error(f"Error closing Gemini session: {e}")

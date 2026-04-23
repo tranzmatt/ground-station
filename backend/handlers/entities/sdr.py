@@ -718,8 +718,9 @@ def _auto_start_transcription(sdr_id, session_id, vfo_number, vfo_state, logger)
                         vfo_state.locked_transmitter_id
                     )
 
-                # Start transcription worker
-                success = transcription_manager.start_transcription(
+                # Start transcription worker off the Socket.IO event loop.
+                success = await asyncio.to_thread(
+                    transcription_manager.start_transcription,
                     sdr_id=sdr_id,
                     session_id=session_id,
                     vfo_number=vfo_number,

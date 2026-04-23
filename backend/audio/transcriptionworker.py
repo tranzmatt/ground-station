@@ -34,6 +34,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from asyncio import Task
+from concurrent.futures import Future
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TextIO
 
@@ -88,7 +89,7 @@ class TranscriptionWorker(ABC, threading.Thread):
         )
         self.transcription_queue = transcription_queue
         self.sio = sio
-        self.loop = loop
+        self.loop = loop  # Main server event loop (Socket.IO)
         self.api_key = api_key
         self.running = True
         self.provider_name = provider_name
@@ -115,6 +116,9 @@ class TranscriptionWorker(ABC, threading.Thread):
         # Connection state
         self.connected: bool = False
         self.receiver_task: Optional[Task] = None
+        self.provider_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.provider_loop_thread: Optional[threading.Thread] = None
+        self._provider_loop_ready = threading.Event()
 
         # Connection backoff to prevent quota exhaustion
         self.last_connection_attempt = 0.0
@@ -149,6 +153,100 @@ class TranscriptionWorker(ABC, threading.Thread):
 
         # Track last written text to avoid duplicates from partial/final updates
         self.last_written_text = ""
+
+    def _start_provider_loop(self):
+        """
+        Start a dedicated asyncio event loop in a separate thread for transcription provider I/O.
+
+        Why this exists:
+        - The main server loop also drives Socket.IO and FFT delivery to clients.
+        - Provider operations (connect/send/receive) can be bursty and, combined with
+          CPU-heavy audio prep, can increase loop latency.
+        - Running provider coroutines on an isolated loop prevents transcription work
+          from contending with real-time SDR/FFT websocket emission on the main loop.
+
+        Lifecycle:
+        - Called once when the transcription worker thread starts.
+        - Creates/stores `self.provider_loop`, then runs it forever in a helper thread.
+        - Signals readiness via `_provider_loop_ready` so callers can safely schedule work.
+        - Stopped by `_stop_provider_loop()` during worker shutdown.
+        """
+        if self.provider_loop and self.provider_loop.is_running():
+            return
+
+        # Reset readiness in case this worker restarts its provider loop.
+        self._provider_loop_ready.clear()
+
+        def _run_provider_loop():
+            # Each thread needs its own event loop instance.
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self.provider_loop = loop
+            # Allow run() to begin scheduling provider coroutines safely.
+            self._provider_loop_ready.set()
+            loop.run_forever()
+            loop.close()
+
+        self.provider_loop_thread = threading.Thread(
+            target=_run_provider_loop,
+            daemon=True,
+            name=(
+                f"Ground Station - {self.provider_name.capitalize()}IOLoop-"
+                f"{self.session_id[:8]}-VFO{self.vfo_number}"
+            ),
+        )
+        self.provider_loop_thread.start()
+        # Wait briefly so self.provider_loop is available before first schedule attempt.
+        self._provider_loop_ready.wait(timeout=2.0)
+
+    def _stop_provider_loop(self):
+        """Stop dedicated provider I/O loop."""
+        if self.provider_loop and self.provider_loop.is_running():
+            self.provider_loop.call_soon_threadsafe(self.provider_loop.stop)
+
+        if self.provider_loop_thread and self.provider_loop_thread.is_alive():
+            self.provider_loop_thread.join(timeout=2.0)
+
+        self.provider_loop = None
+        self.provider_loop_thread = None
+        self._provider_loop_ready.clear()
+
+    async def _cleanup_provider_resources(self):
+        """Cancel provider receiver and disconnect active provider session."""
+        if self.receiver_task and not self.receiver_task.done():
+            self.receiver_task.cancel()
+            try:
+                await self.receiver_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+        self.receiver_task = None
+
+        try:
+            await self._disconnect()
+        except Exception:
+            pass
+
+    async def _safe_sio_emit(self, event: str, payload: dict, room: Optional[str] = None):
+        """Emit on main Socket.IO event loop from any thread/loop."""
+        emit_coro = self.sio.emit(event, payload, room=room)
+
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+
+        if current_loop is self.loop:
+            await emit_coro
+            return
+
+        fut: Future = asyncio.run_coroutine_threadsafe(emit_coro, self.loop)
+        await asyncio.wrap_future(fut)
+
+    def _prepare_audio_payload(self, audio_data: np.ndarray) -> Any:
+        """Provider preprocessing hook executed in the transcription thread."""
+        return audio_data
 
     def _setup_transcription_file(self):
         """Create transcription output file with timestamp-based naming (lazy initialization)."""
@@ -325,13 +423,15 @@ class TranscriptionWorker(ABC, threading.Thread):
 
     def run(self):
         """Main processing loop"""
+        self._start_provider_loop()
+
         logger.info(
             f"{self.provider_name.capitalize()} transcription worker started for session {self.session_id[:8]} "
             f"VFO {self.vfo_number} (language={self.language}, translate_to={self.translate_to})"
         )
 
-        # Send initial status to UI
-        self._send_status_to_ui("idle")
+        # Send initial startup status to UI immediately.
+        self._send_status_to_ui("starting")
 
         # Rate tracking and stats heartbeat
         rate_window_start = time.time()
@@ -395,15 +495,17 @@ class TranscriptionWorker(ABC, threading.Thread):
                     if rms >= self.silence_threshold:
                         # Ensure audio is mono float32
                         audio_array = np.array(concatenated, dtype=np.float32)
+                        audio_payload = self._prepare_audio_payload(audio_array)
 
                         # Clear buffer
                         self.audio_buffer = []
 
                         # Stream to provider
-                        asyncio.run_coroutine_threadsafe(
-                            self._stream_audio(audio_data=audio_array),
-                            self.loop,
-                        )
+                        if self.provider_loop:
+                            asyncio.run_coroutine_threadsafe(
+                                self._stream_audio(audio_payload=audio_payload),
+                                self.provider_loop,
+                            )
                     else:
                         # Silence detected, clear buffer
                         self.audio_buffer = []
@@ -457,12 +559,28 @@ class TranscriptionWorker(ABC, threading.Thread):
                         f"Errors={stats_copy['errors']}"
                     )
 
-                    # Emit status to frontend
-                    self._send_status_to_ui(
-                        "transcribing" if stats_copy["is_connected"] else "idle"
-                    )
+                    # Emit status to frontend.
+                    # Keep "starting" visible until we have sent any audio to provider.
+                    if stats_copy["is_connected"]:
+                        status = "transcribing"
+                    elif stats_copy["transcriptions_sent"] == 0:
+                        status = "starting"
+                    else:
+                        status = "idle"
+
+                    self._send_status_to_ui(status)
 
                     last_status_print = now
+
+        if self.provider_loop:
+            try:
+                cleanup_future = asyncio.run_coroutine_threadsafe(
+                    self._cleanup_provider_resources(), self.provider_loop
+                )
+                cleanup_future.result(timeout=3.0)
+            except Exception:
+                pass
+            self._stop_provider_loop()
 
         logger.info(f"{self.provider_name.capitalize()} transcription worker stopped")
 
@@ -471,7 +589,7 @@ class TranscriptionWorker(ABC, threading.Thread):
         Send status update to UI via Socket.IO.
 
         Args:
-            status: Status string ("idle", "connecting", "transcribing", "closed")
+            status: Status string ("starting", "idle", "connecting", "transcribing", "closed")
         """
         with self.stats_lock:
             stats_copy = self.stats.copy()
@@ -585,7 +703,7 @@ class TranscriptionWorker(ABC, threading.Thread):
             error_message = f"Transcription error: {str(error)[:100]}"
             error_details = str(error)
 
-        await self.sio.emit(
+        await self._safe_sio_emit(
             "transcription-error",
             {
                 "session_id": self.session_id,
@@ -627,7 +745,7 @@ class TranscriptionWorker(ABC, threading.Thread):
         log_type = "final" if is_final else "partial"
         logger.info(f"[{self.provider_name.upper()}] Transcription {log_type} ({language}): {text}")
 
-        await self.sio.emit("transcription-data", transcription_data, room=self.session_id)
+        await self._safe_sio_emit("transcription-data", transcription_data, room=self.session_id)
 
         # Write all transcriptions to file (both partial and final)
         # This ensures we don't lose any text even if only partials are received
@@ -691,12 +809,12 @@ class TranscriptionWorker(ABC, threading.Thread):
         pass
 
     @abstractmethod
-    async def _send_audio_to_provider(self, audio_data: np.ndarray):
+    async def _send_audio_to_provider(self, audio_payload: Any):
         """
         Send audio data to the provider's API.
 
         Args:
-            audio_data: Audio samples as float32 numpy array
+            audio_payload: Provider-ready audio payload
         """
         pass
 
@@ -708,12 +826,12 @@ class TranscriptionWorker(ABC, threading.Thread):
         """
         pass
 
-    async def _stream_audio(self, audio_data: np.ndarray):
+    async def _stream_audio(self, audio_payload: Any):
         """
         Stream audio to the transcription service.
 
         Args:
-            audio_data: Audio samples as numpy array (44.1kHz float32)
+            audio_payload: Provider-ready audio payload
         """
         try:
             # Check if API key is configured
@@ -745,7 +863,7 @@ class TranscriptionWorker(ABC, threading.Thread):
 
             # Send audio to provider
             if self.connected:
-                await self._send_audio_to_provider(audio_data)
+                await self._send_audio_to_provider(audio_payload)
 
                 # Update stats
                 with self.stats_lock:
