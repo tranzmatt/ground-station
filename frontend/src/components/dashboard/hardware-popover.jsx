@@ -322,6 +322,40 @@ const HardwareSettingsPopover = () => {
                 color: 'action.disabled',
             },
         };
+        if (fleetRows.length === 0) {
+            return (
+                <Box sx={{ p: 1.25 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '12px' }}>
+                        {panelTitle}
+                    </Typography>
+                    <Box
+                        sx={{
+                            mt: 0.9,
+                            minHeight: 126,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 0.9,
+                            textAlign: 'center',
+                            border: '1px dashed',
+                            borderColor: 'border.main',
+                            borderRadius: 1,
+                            px: 1.5,
+                            py: 2,
+                            backgroundColor: 'overlay.light',
+                        }}
+                    >
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            No targets configured
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            Add a target to enable per-target rig and rotator quick actions.
+                        </Typography>
+                    </Box>
+                </Box>
+            );
+        }
         return (
             <Box sx={{ p: 0.9 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '12px' }}>

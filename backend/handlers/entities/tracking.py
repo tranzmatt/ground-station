@@ -15,6 +15,7 @@
 
 """Tracking state handlers and emission functions."""
 
+import asyncio
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Union
@@ -37,6 +38,7 @@ from tracker.runner import (
     get_assigned_rotator_for_tracker,
     get_tracker_instances_payload,
     get_tracker_manager,
+    remove_tracker_instance,
     restore_tracker_rotator_assignment,
     swap_rotators_between_trackers,
 )
@@ -49,6 +51,27 @@ def _tracker_id_required_response() -> Dict[str, Any]:
         "error": "tracker_id_required",
         "message": "tracker_id is required",
     }
+
+
+def _missing_new_tracker_fields(value: Dict[str, Any]) -> list[str]:
+    required_fields = [
+        "norad_id",
+        "group_id",
+        "rotator_state",
+        "rig_state",
+        "rig_id",
+        "rotator_id",
+    ]
+    missing: list[str] = []
+    for field in required_fields:
+        field_value = value.get(field)
+        if field in {"norad_id", "group_id"}:
+            if field_value in (None, "", 0):
+                missing.append(field)
+        else:
+            if field_value is None:
+                missing.append(field)
+    return missing
 
 
 async def emit_tracker_data(dbsession, sio, logger, tracker_id: str):
@@ -198,6 +221,31 @@ async def set_tracking_state(
 
     # Extract the value from the data structure
     value = data.get("value", {}) if data else {}
+    value = value if isinstance(value, dict) else {}
+
+    existing_payload = get_tracker_instances_payload()
+    existing_instances = existing_payload.get("instances", []) if existing_payload else []
+    existing_tracker_ids = {
+        require_tracker_id(instance.get("tracker_id"))
+        for instance in existing_instances
+        if instance and instance.get("tracker_id")
+    }
+    is_new_tracker = tracker_id not in existing_tracker_ids
+    if is_new_tracker:
+        missing_fields = _missing_new_tracker_fields(value)
+        if missing_fields:
+            return {
+                "success": False,
+                "error": "tracker_create_requires_fields",
+                "message": (
+                    f"Cannot create tracker '{tracker_id}' without required fields: "
+                    f"{', '.join(missing_fields)}"
+                ),
+                "data": {
+                    "tracker_id": tracker_id,
+                    "missing_fields": missing_fields,
+                },
+            }
 
     # Enforce one rotator -> one tracker ownership.
     assignment_previous_rotator = get_assigned_rotator_for_tracker(tracker_id)
@@ -453,6 +501,71 @@ async def get_tracker_instances(
     }
 
 
+async def delete_tracker_instance(
+    sio: Any, data: Optional[Dict], logger: Any, sid: str
+) -> Dict[str, Union[bool, dict, str]]:
+    payload = data or {}
+    try:
+        tracker_id = require_tracker_id(payload.get("tracker_id"))
+    except InvalidTrackerIdError:
+        return _tracker_id_required_response()
+
+    existing_payload = get_tracker_instances_payload()
+    existing_instances = existing_payload.get("instances", []) if existing_payload else []
+    existing_tracker_ids = {
+        require_tracker_id(instance.get("tracker_id"))
+        for instance in existing_instances
+        if instance and instance.get("tracker_id")
+    }
+    if tracker_id not in existing_tracker_ids:
+        return {
+            "success": False,
+            "error": "tracker_not_found",
+            "message": f"Tracker '{tracker_id}' does not exist",
+        }
+
+    # Stop/remove tracker runtime first so it cannot race DB writes during deletion.
+    # Run in a worker thread to avoid blocking the event loop if teardown stalls.
+    try:
+        remove_result = await asyncio.wait_for(
+            asyncio.to_thread(remove_tracker_instance, tracker_id),
+            timeout=6.0,
+        )
+    except TimeoutError:
+        return {
+            "success": False,
+            "error": "remove_tracker_timeout",
+            "message": f"Timed out while removing tracker instance '{tracker_id}'",
+        }
+    if not remove_result.get("success"):
+        return {
+            "success": False,
+            "error": remove_result.get("error", "failed_removing_tracker_instance"),
+            "message": f"Failed removing tracker instance '{tracker_id}'",
+            "data": remove_result,
+        }
+
+    state_name = get_tracking_state_name(tracker_id)
+    async with AsyncSessionLocal() as dbsession:
+        delete_state_reply = await crud.trackingstate.delete_tracking_state(dbsession, state_name)
+        if not delete_state_reply.get("success"):
+            return {
+                "success": False,
+                "error": delete_state_reply.get("error", "failed_deleting_tracking_state"),
+                "message": "Failed deleting tracking state row",
+            }
+
+    await emit_tracker_instances(sio)
+    return {
+        "success": True,
+        "data": {
+            "tracker_id": tracker_id,
+            "tracking_state_deleted": bool(delete_state_reply.get("deleted")),
+            "instances": get_tracker_instances_payload().get("instances", []),
+        },
+    }
+
+
 async def fetch_next_passes(
     sio: Any, data: Optional[Dict], logger: Any, sid: str
 ) -> Dict[str, Union[bool, list, float]]:
@@ -701,6 +814,7 @@ def register_handlers(registry):
             "set-tracking-state": (set_tracking_state, "data_submission"),
             "swap-target-rotators": (swap_target_rotators, "data_submission"),
             "get-tracker-instances": (get_tracker_instances, "data_request"),
+            "delete-tracker-instance": (delete_tracker_instance, "data_submission"),
             "fetch-next-passes": (fetch_next_passes, "data_request"),
             "fetch-next-pass-summary-for-trackers": (
                 fetch_next_pass_summaries_for_trackers,

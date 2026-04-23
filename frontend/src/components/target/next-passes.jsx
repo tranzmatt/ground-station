@@ -507,6 +507,7 @@ const NextPassesIsland = React.memo(function NextPassesIsland() {
     const {socket} = useSocket();
     const dispatch = useDispatch();
     const { t } = useTranslation('target');
+    const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const [containerHeight, setContainerHeight] = useState(0);
     const containerRef = useRef(null);
     const {
@@ -521,6 +522,7 @@ const NextPassesIsland = React.memo(function NextPassesIsland() {
         passesTableSortModel,
         openPassesTableSettingsDialog
     } = useSelector(state => state.targetSatTrack);
+    const hasTargets = trackerInstances.length > 0;
     const { location } = useSelector(state => state.location);
     const minHeight = 200;
     const maxHeight = 400;
@@ -717,9 +719,12 @@ const NextPassesIsland = React.memo(function NextPassesIsland() {
                 <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%'}}>
                     <Box sx={{display: 'flex', alignItems: 'center'}}>
                         <Typography variant="subtitle2" sx={{fontWeight: 'bold'}}>
-                            {t('next_passes.title', { name: satelliteData['details']['name'], hours: nextPassesHours })}
+                            {hasTargets
+                                ? t('next_passes.title', { name: satelliteData['details']['name'], hours: nextPassesHours })
+                                : 'Next Passes'}
                         </Typography>
                     </Box>
+                    {hasTargets && (
                     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
                         <Tooltip title="Alt+1">
                             <span>
@@ -773,6 +778,7 @@ const NextPassesIsland = React.memo(function NextPassesIsland() {
                             </span>
                         </Tooltip>
                     </Box>
+                    )}
                 </Box>
             </TitleBar>
             <div style={{ position: 'relative', display: 'block', height: '100%' }} ref={containerRef}>
@@ -783,16 +789,49 @@ const NextPassesIsland = React.memo(function NextPassesIsland() {
                     height: containerHeight - 25,
                     minHeight,
                 }}>
-                    <MemoizedStyledDataGrid
-                        satellitePasses={filteredPasses}
-                        passesLoading={passesLoading}
-                        columnVisibility={passesTableColumnVisibility}
-                        onColumnVisibilityChange={handleColumnVisibilityChange}
-                        pageSize={passesTablePageSize}
-                        onPageSizeChange={handlePageSizeChange}
-                        sortModel={passesTableSortModel}
-                        onSortModelChange={handleSortModelChange}
-                    />
+                    {!hasTargets && (
+                        <Box
+                            sx={{
+                                flex: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                px: 2,
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    width: '100%',
+                                    maxWidth: 420,
+                                    textAlign: 'center',
+                                    p: 2.5,
+                                    borderRadius: 1.25,
+                                    border: '1px dashed',
+                                    borderColor: 'border.main',
+                                    backgroundColor: 'overlay.light',
+                                }}
+                            >
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                    No targets configured
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                    Add a target to load upcoming passes and visibility windows.
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+                    {hasTargets && (
+                        <MemoizedStyledDataGrid
+                            satellitePasses={filteredPasses}
+                            passesLoading={passesLoading}
+                            columnVisibility={passesTableColumnVisibility}
+                            onColumnVisibilityChange={handleColumnVisibilityChange}
+                            pageSize={passesTablePageSize}
+                            onPageSizeChange={handlePageSizeChange}
+                            sortModel={passesTableSortModel}
+                            onSortModelChange={handleSortModelChange}
+                        />
+                    )}
                 </div>
             </div>
             <TargetPassesTableSettingsDialog

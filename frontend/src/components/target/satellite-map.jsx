@@ -17,7 +17,7 @@
  *
  */
 
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     MapContainer,
     TileLayer,
@@ -71,6 +71,7 @@ import {
     humanizeAltitude,
     humanizeVelocity,
 } from "../common/common.jsx";
+import TargetNumberIcon from '../common/target-number-icon.jsx';
 import MapSettingsIslandDialog from './map-settings-dialog.jsx';
 import CoordinateGrid from "../common/mercator-grid.jsx";
 import createTerminatorLine from "../common/terminator-line.jsx";
@@ -86,6 +87,7 @@ import {
 import {useSocket} from "../common/socket.jsx";
 
 const storageMapZoomValueKey = "target-map-zoom-level";
+const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
 
 // Match overview tracked-satellite tooltip style.
 const TrackedSatelliteTooltip = styled(LeafletTooltip)(({ theme }) => ({
@@ -270,6 +272,7 @@ const TargetSatelliteMapContainer = ({}) => {
     const theme = useTheme();
     const {
         groupId,
+        trackerId,
         satelliteId: noradId,
         showPastOrbitPath,
         showFutureOrbitPath,
@@ -293,6 +296,22 @@ const TargetSatelliteMapContainer = ({}) => {
         openMapSettingsDialog,
         showGrid,
     } = useSelector(state => state.targetSatTrack);
+    const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
+    const targetNumber = useMemo(() => {
+        const activeTrackerInstance = trackerInstances.find((instance) => instance?.tracker_id === trackerId) || null;
+        const instanceTargetNumber = Number(activeTrackerInstance?.target_number);
+        if (Number.isFinite(instanceTargetNumber) && instanceTargetNumber > 0) {
+            return instanceTargetNumber;
+        }
+        const trackerSlotMatch = String(trackerId || '').match(TARGET_SLOT_ID_PATTERN);
+        if (trackerSlotMatch) {
+            const parsedTargetNumber = Number(trackerSlotMatch[1]);
+            if (Number.isFinite(parsedTargetNumber) && parsedTargetNumber > 0) {
+                return parsedTargetNumber;
+            }
+        }
+        return null;
+    }, [trackerId, trackerInstances]);
 
     const satellitePosition = useSelector(satellitePositionSelector);
     const satelliteCoverage = useSelector(satelliteCoverageSelector);
@@ -440,7 +459,16 @@ const TargetSatelliteMapContainer = ({}) => {
                         interactive={true}
                     >
                         <strong>
-                            <span>{'◎ '}</span>
+                            {targetNumber != null && (
+                                <TargetNumberIcon
+                                    targetNumber={targetNumber}
+                                    size={15}
+                                    sx={{ mr: 0.7, verticalAlign: 'middle', position: 'relative', top: -1 }}
+                                    iconColor="common.white"
+                                    badgeBgColor="warning.main"
+                                    badgeTextColor="common.black"
+                                />
+                            )}
                             {satelliteName} - {parseInt(altitude) + " km, " + velocity.toFixed(2) + " km/s"}
                         </strong>
                     </TrackedSatelliteTooltip>

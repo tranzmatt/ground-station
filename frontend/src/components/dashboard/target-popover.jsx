@@ -896,6 +896,33 @@ const SatelliteInfoPopover = () => {
                             })}
                         </Stack>
                     )}
+                    {fleetRows.length === 0 && (
+                        <Box
+                            sx={{
+                                minHeight: 140,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 1,
+                                textAlign: 'center',
+                                border: '1px dashed',
+                                borderColor: 'border.main',
+                                borderRadius: 1,
+                                px: 2,
+                                py: 2.5,
+                                backgroundColor: 'overlay.light',
+                            }}
+                        >
+                            <SatelliteAltIcon sx={{ color: 'text.secondary' }} />
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                No targets configured
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Create a target from the Track page to view live satellite status.
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
                 )}
             </Popover>

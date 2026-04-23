@@ -200,11 +200,13 @@ const SatellitePassTimelineComponent = ({
   const satellitePassesFromRedux = useSelector((state) => state.targetSatTrack.satellitePasses);
   const activePassFromRedux = useSelector((state) => state.targetSatTrack.activePass);
   const gridEditableFromRedux = useSelector((state) => state.targetSatTrack.gridEditable);
+  const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
 
   const satellitePasses = passesOverride !== null ? passesOverride : satellitePassesFromRedux;
   const activePass = activePassOverride !== undefined ? activePassOverride : activePassFromRedux;
   const gridEditable = gridEditableOverride !== null ? gridEditableOverride : gridEditableFromRedux;
   const groundStationLocation = useSelector((state) => state.location.location);
+  const noTargetsConfigured = passesOverride === null && trackerInstances.length === 0;
 
   // Adjust initial time window based on actual pass data (only once on mount)
   // Skip this adjustment if nextPassesHours is explicitly provided (e.g., from overview page)
@@ -919,9 +921,11 @@ const SatellitePassTimelineComponent = ({
               }}
             >
               <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                {!satellitePasses || satellitePasses.length === 0
+                {noTargetsConfigured
+                  ? 'No targets configured'
+                  : (!satellitePasses || satellitePasses.length === 0
                   ? t('timeline.noPassesAvailable')
-                  : t('timeline.noPassesForSelected', { hours: timeWindowHours.toFixed(1) })}
+                  : t('timeline.noPassesForSelected', { hours: timeWindowHours.toFixed(1) }))}
               </Typography>
             </Box>
           )}

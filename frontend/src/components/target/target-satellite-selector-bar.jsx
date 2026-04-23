@@ -26,6 +26,19 @@ import {
     Button,
     Tabs,
     Tab,
+    IconButton,
+    Autocomplete,
+    TextField,
+    CircularProgress,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
 } from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
 import { useSocket } from "../common/socket.jsx";
@@ -37,8 +50,11 @@ import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import GpsOffIcon from '@mui/icons-material/GpsOff';
 import StopIcon from '@mui/icons-material/Stop';
+import CloseIcon from '@mui/icons-material/Close';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
 import {
     setAvailableTransmitters,
+    setRadioRig,
     setRotator,
     setSatelliteId,
     setTrackerId,
@@ -47,6 +63,24 @@ import {
 import { toast } from "../../utils/toast-with-timestamp.jsx";
 import SatelliteSearchAutocomplete from "./satellite-search.jsx";
 import { useTargetRotatorSelectionDialog } from "./use-target-rotator-selection-dialog.jsx";
+import { deleteTrackerInstance } from "./tracker-instances-slice.jsx";
+
+const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
+const ADD_TARGET_TAB_VALUE = '__add-target__';
+
+const deriveNextTrackerSlotId = (instances = []) => {
+    let maxTargetNumber = 0;
+    instances.forEach((instance) => {
+        const trackerId = String(instance?.tracker_id || '');
+        const match = trackerId.match(TARGET_SLOT_ID_PATTERN);
+        if (!match) return;
+        const targetNumber = Number(match[1]);
+        if (Number.isFinite(targetNumber) && targetNumber > maxTargetNumber) {
+            maxTargetNumber = targetNumber;
+        }
+    });
+    return `target-${Math.max(1, maxTargetNumber + 1)}`;
+};
 
 const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBar() {
     const { socket } = useSocket();
@@ -65,6 +99,8 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
         rotatorData,
     } = useSelector((state) => state.targetSatTrack);
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
+    const rigRows = useSelector((state) => state.rigs?.rigs || []);
+    const rotatorRows = useSelector((state) => state.rotators?.rotators || []);
     const activeTrackerInstance = useMemo(
         () => trackerInstances.find((instance) => instance.tracker_id === trackerId) || null,
         [trackerInstances, trackerId]
@@ -78,8 +114,22 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
     const { requestRotatorForTarget, dialog: rotatorSelectionDialog } = useTargetRotatorSelectionDialog();
     const [countdown, setCountdown] = useState('');
     const [searchResetKey, setSearchResetKey] = useState(0);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
+    const [deleteTargetBusy, setDeleteTargetBusy] = useState(false);
+    const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [createTargetBusy, setCreateTargetBusy] = useState(false);
+    const [createSearchOpen, setCreateSearchOpen] = useState(false);
+    const [createSearchOptions, setCreateSearchOptions] = useState([]);
+    const [createSearchLoading, setCreateSearchLoading] = useState(false);
+    const [createSelectedSatellite, setCreateSelectedSatellite] = useState(null);
+    const [createSelectedRigId, setCreateSelectedRigId] = useState('none');
+    const [createSelectedRotatorId, setCreateSelectedRotatorId] = useState('none');
 
     const handleTrackingStop = useCallback(() => {
+        if (!trackerId) {
+            return;
+        }
         const newTrackingState = {
             ...trackingState,
             tracker_id: trackerId,
@@ -91,8 +141,50 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
 
     const handleTargetTabChange = useCallback((event, value) => {
         if (!value) return;
+        if (value === ADD_TARGET_TAB_VALUE) {
+            setCreateDialogOpen(true);
+            return;
+        }
         dispatch(setTrackerId(value));
     }, [dispatch]);
+
+    const handleDeleteTarget = useCallback((event, trackerIdToDelete) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!trackerIdToDelete) {
+            return;
+        }
+        const instance = trackerInstances.find((row) => row?.tracker_id === trackerIdToDelete);
+        const targetNumber = Number(
+            instance?.target_number
+            || (trackerInstances.findIndex((row) => row?.tracker_id === trackerIdToDelete) + 1)
+            || 0
+        );
+        setPendingDeleteTarget({ trackerId: trackerIdToDelete, targetNumber });
+        setDeleteDialogOpen(true);
+    }, [trackerInstances]);
+
+    const handleConfirmDeleteTarget = useCallback(async () => {
+        const trackerIdToDelete = pendingDeleteTarget?.trackerId;
+        if (!trackerIdToDelete) {
+            setDeleteDialogOpen(false);
+            setPendingDeleteTarget(null);
+            setDeleteTargetBusy(false);
+            return;
+        }
+        try {
+            setDeleteTargetBusy(true);
+            await dispatch(deleteTrackerInstance({ socket, trackerId: trackerIdToDelete })).unwrap();
+            setDeleteDialogOpen(false);
+            setPendingDeleteTarget(null);
+            setDeleteTargetBusy(false);
+        } catch (error) {
+            toast.error(error?.message || String(error) || 'Failed to delete target');
+            setDeleteDialogOpen(false);
+            setPendingDeleteTarget(null);
+            setDeleteTargetBusy(false);
+        }
+    }, [dispatch, pendingDeleteTarget, socket]);
 
     const getTransmittersFromSatellite = useCallback((satellite) => {
         if (!satellite || typeof satellite !== 'object') {
@@ -103,6 +195,103 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
         }
         return [];
     }, []);
+
+    const resetCreateDialogState = useCallback(() => {
+        setCreateSearchOpen(false);
+        setCreateSearchOptions([]);
+        setCreateSearchLoading(false);
+        setCreateSelectedSatellite(null);
+        setCreateSelectedRigId('none');
+        setCreateSelectedRotatorId('none');
+        setCreateTargetBusy(false);
+    }, []);
+
+    const handleOpenCreateDialog = useCallback(() => {
+        setCreateDialogOpen(true);
+    }, []);
+
+    const handleCloseCreateDialog = useCallback(() => {
+        if (createTargetBusy) return;
+        setCreateDialogOpen(false);
+        resetCreateDialogState();
+    }, [createTargetBusy, resetCreateDialogState]);
+
+    const handleCreateSearchInputChange = useCallback((event, value) => {
+        const keyword = String(value || '').trim();
+        if (keyword.length < 3) {
+            setCreateSearchOptions([]);
+            setCreateSearchLoading(false);
+            return;
+        }
+        setCreateSearchLoading(true);
+        socket.emit('data_request', 'get-satellite-search', keyword, (response) => {
+            if (response?.success) {
+                setCreateSearchOptions(Array.isArray(response?.data) ? response.data : []);
+            } else {
+                setCreateSearchOptions([]);
+                toast.error(response?.error || 'Error searching for satellites');
+            }
+            setCreateSearchLoading(false);
+        });
+    }, [socket]);
+
+    const handleCreateTargetSubmit = useCallback(async () => {
+        if (!createSelectedSatellite?.norad_id) {
+            toast.error('Please select a satellite first');
+            return;
+        }
+
+        const selectedGroupId = createSelectedSatellite?.groups?.[0]?.id || trackingState?.group_id || '';
+        if (!selectedGroupId) {
+            toast.error('Selected satellite has no group mapping');
+            return;
+        }
+
+        const trackerSlotId = deriveNextTrackerSlotId(trackerInstances);
+        const normalizedRigId = createSelectedRigId || 'none';
+        const normalizedRotatorId = createSelectedRotatorId || 'none';
+        const nextTransmitters = getTransmittersFromSatellite(createSelectedSatellite);
+
+        const payload = {
+            ...trackingState,
+            tracker_id: trackerSlotId,
+            norad_id: createSelectedSatellite.norad_id,
+            group_id: selectedGroupId,
+            rig_id: normalizedRigId,
+            rotator_id: normalizedRotatorId,
+            transmitter_id: 'none',
+            rig_state: trackingState?.rig_state || 'disconnected',
+            rotator_state: trackingState?.rotator_state || 'disconnected',
+            rig_vfo: trackingState?.rig_vfo || 'none',
+            vfo1: trackingState?.vfo1 || 'uplink',
+            vfo2: trackingState?.vfo2 || 'downlink',
+        };
+
+        try {
+            setCreateTargetBusy(true);
+            dispatch(setTrackerId(trackerSlotId));
+            dispatch(setSatelliteId(createSelectedSatellite.norad_id));
+            dispatch(setRotator({ value: normalizedRotatorId, trackerId: trackerSlotId }));
+            dispatch(setRadioRig({ value: normalizedRigId, trackerId: trackerSlotId }));
+            dispatch(setAvailableTransmitters(nextTransmitters));
+            await dispatch(setTrackingStateInBackend({ socket, data: payload })).unwrap();
+            setCreateDialogOpen(false);
+            resetCreateDialogState();
+        } catch (error) {
+            toast.error(error?.message || 'Failed to create target');
+            setCreateTargetBusy(false);
+        }
+    }, [
+        createSelectedRigId,
+        createSelectedRotatorId,
+        createSelectedSatellite,
+        dispatch,
+        getTransmittersFromSatellite,
+        resetCreateDialogState,
+        socket,
+        trackerInstances,
+        trackingState,
+    ]);
 
     const handleRetargetSatelliteSelect = useCallback(async (satellite) => {
         if (!satellite?.norad_id) {
@@ -257,10 +446,444 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
     const tabValue = targetOptions.some((option) => option.trackerId === trackerId)
         ? trackerId
         : (targetOptions[0]?.trackerId || false);
+    const nextTargetSlotId = useMemo(() => deriveNextTrackerSlotId(trackerInstances), [trackerInstances]);
+    const hardwareUsageRows = useMemo(() => {
+        return trackerInstances.map((instance, index) => {
+            const instanceTrackerId = String(instance?.tracker_id || '');
+            const targetNumber = Number(instance?.target_number || (index + 1));
+            const tracking = instance?.tracking_state || {};
+            return {
+                trackerId: instanceTrackerId,
+                targetNumber,
+                rigId: String(tracking?.rig_id || 'none'),
+                rotatorId: String(instance?.rotator_id || tracking?.rotator_id || 'none'),
+            };
+        });
+    }, [trackerInstances]);
+    const rigUsageById = useMemo(() => {
+        return hardwareUsageRows.reduce((acc, row) => {
+            if (!row.rigId || row.rigId === 'none') return acc;
+            if (!acc[row.rigId]) acc[row.rigId] = [];
+            acc[row.rigId].push(row);
+            return acc;
+        }, {});
+    }, [hardwareUsageRows]);
+    const rotatorUsageById = useMemo(() => {
+        return hardwareUsageRows.reduce((acc, row) => {
+            if (!row.rotatorId || row.rotatorId === 'none') return acc;
+            if (!acc[row.rotatorId]) acc[row.rotatorId] = [];
+            acc[row.rotatorId].push(row);
+            return acc;
+        }, {});
+    }, [hardwareUsageRows]);
 
     return (
         <>
         {rotatorSelectionDialog}
+        <Dialog
+            open={deleteDialogOpen}
+            onClose={() => {
+                if (deleteTargetBusy) return;
+                setDeleteDialogOpen(false);
+                setPendingDeleteTarget(null);
+                setDeleteTargetBusy(false);
+            }}
+            fullWidth
+            maxWidth="xs"
+            PaperProps={{
+                sx: {
+                    bgcolor: 'background.paper',
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    borderRadius: 2,
+                },
+            }}
+        >
+            <DialogTitle
+                sx={{
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                    borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    py: 2,
+                }}
+            >
+                Delete Target
+            </DialogTitle>
+            <DialogContent sx={{ bgcolor: 'background.paper', px: 3, pb: 2.5 }}>
+                <Box sx={{ pt: 2 }}>
+                    <DialogContentText sx={{ mb: 1 }}>
+                        {`Delete ${pendingDeleteTarget ? `Target ${pendingDeleteTarget.targetNumber}` : 'this target'}?`}
+                    </DialogContentText>
+                    <DialogContentText color="text.secondary">
+                        This will remove the target tracking state and stop its tracker process.
+                    </DialogContentText>
+                    {deleteTargetBusy && (
+                        <Box sx={{ mt: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={16} />
+                            <Typography variant="caption" color="text.secondary">
+                                Deleting target...
+                            </Typography>
+                        </Box>
+                    )}
+                </Box>
+            </DialogContent>
+            <DialogActions
+                sx={{
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                    borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+                    px: 3,
+                    py: 2,
+                    gap: 1.5,
+                }}
+            >
+                <Button
+                    variant="outlined"
+                    disabled={deleteTargetBusy}
+                    onClick={() => {
+                        setDeleteDialogOpen(false);
+                        setPendingDeleteTarget(null);
+                        setDeleteTargetBusy(false);
+                    }}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    color="error"
+                    variant="contained"
+                    disabled={deleteTargetBusy}
+                    onClick={handleConfirmDeleteTarget}
+                    startIcon={deleteTargetBusy ? <CircularProgress color="inherit" size={16} /> : null}
+                >
+                    {deleteTargetBusy ? 'Deleting...' : 'Delete'}
+                </Button>
+            </DialogActions>
+        </Dialog>
+        <Dialog
+            open={createDialogOpen}
+            onClose={handleCloseCreateDialog}
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{
+                sx: {
+                    bgcolor: 'background.paper',
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    borderRadius: 2,
+                },
+            }}
+        >
+            <DialogTitle
+                sx={{
+                    bgcolor: 'background.paper',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    py: 2.2,
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                            Add New Target
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2 }}>
+                            Configure satellite and hardware in two quick steps
+                        </Typography>
+                    </Box>
+                    <Chip
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                        label={`Slot ${nextTargetSlotId}`}
+                        sx={{ fontFamily: 'monospace', fontSize: '0.68rem', fontWeight: 700 }}
+                    />
+                </Box>
+            </DialogTitle>
+            <DialogContent sx={{ bgcolor: 'background.paper', px: 3, pb: 2.5, pt: 5 }}>
+                <Box sx={{ display: 'grid', gap: 1.25, pt: 2 }}>
+                    <Box
+                        sx={{
+                            p: 1.25,
+                            borderRadius: 1.5,
+                            background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}1A 0%, ${theme.palette.primary.main}08 100%)`,
+                        }}
+                    >
+                        <Typography variant="overline" sx={{ fontWeight: 800, color: 'primary.main', letterSpacing: 0.4 }}>
+                            Step 1 · Satellite
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
+                            Search and select the satellite target.
+                        </Typography>
+                    <Autocomplete
+                        size="small"
+                        open={createSearchOpen}
+                        onOpen={() => setCreateSearchOpen(true)}
+                        onClose={() => setCreateSearchOpen(false)}
+                        options={createSearchOptions}
+                        loading={createSearchLoading}
+                        value={createSelectedSatellite}
+                        onInputChange={handleCreateSearchInputChange}
+                        onChange={(event, value) => {
+                            setCreateSelectedSatellite(value || null);
+                        }}
+                        isOptionEqualToValue={(option, value) => option?.norad_id === value?.norad_id}
+                        getOptionLabel={(option) => `${option?.norad_id || ''} - ${option?.name || ''}`}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Satellite"
+                                placeholder="Search by name or NORAD ID"
+                                slotProps={{
+                                    input: {
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {createSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                                                {params.InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    },
+                                }}
+                            />
+                        )}
+                    />
+                    </Box>
+
+                    <Box
+                        sx={{
+                            p: 1.25,
+                            borderRadius: 1.5,
+                            background: (theme) => `linear-gradient(135deg, ${theme.palette.secondary.main}1A 0%, ${theme.palette.secondary.main}08 100%)`,
+                        }}
+                    >
+                        <Typography variant="overline" sx={{ fontWeight: 800, color: 'secondary.main', letterSpacing: 0.4 }}>
+                            Step 2 · Hardware (Optional)
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
+                            Assign rotator and rig now, or leave as none.
+                        </Typography>
+
+                    <FormControl
+                        size="small"
+                        fullWidth
+                        variant="outlined"
+                        sx={{ minWidth: 200, mt: 0, mb: 1 }}
+                    >
+                        <InputLabel id="create-target-rotator-label">Rotator</InputLabel>
+                        <Select
+                            labelId="create-target-rotator-label"
+                            value={createSelectedRotatorId}
+                            label="Rotator"
+                            onChange={(event) => setCreateSelectedRotatorId(String(event.target.value))}
+                            renderValue={(selected) => {
+                                if (String(selected) === 'none') return 'No rotator control';
+                                const selectedRotator = rotatorRows.find((row) => String(row.id) === String(selected));
+                                if (!selectedRotator) return 'No rotator control';
+                                const usageRows = rotatorUsageById[String(selectedRotator.id)] || [];
+                                const inUseLabel = usageRows.length > 0
+                                    ? `In use ${usageRows.slice(0, 2).map((row) => `T${row.targetNumber}`).join(',')}`
+                                    : null;
+                                return (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                        <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
+                                            {selectedRotator.name}
+                                        </Typography>
+                                        {inUseLabel && (
+                                            <Chip
+                                                size="small"
+                                                color="warning"
+                                                label={inUseLabel}
+                                                sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0 }}
+                                            />
+                                        )}
+                                        <Chip
+                                            size="small"
+                                            label={`${selectedRotator.host}:${selectedRotator.port}`}
+                                            variant="outlined"
+                                            sx={{ height: 18, fontSize: '0.62rem', fontFamily: 'monospace', flexShrink: 0 }}
+                                        />
+                                    </Box>
+                                );
+                            }}
+                        >
+                            <MenuItem value="none">
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                        No rotator control
+                                    </Typography>
+                                    <Chip
+                                        label="None"
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ ml: 'auto', height: 18, fontSize: '0.62rem' }}
+                                    />
+                                </Box>
+                            </MenuItem>
+                            {rotatorRows.map((rotator) => {
+                                const usageRows = rotatorUsageById[String(rotator.id)] || [];
+                                const inUseLabel = usageRows.length > 0
+                                    ? `In use ${usageRows.slice(0, 2).map((row) => `T${row.targetNumber}`).join(',')}`
+                                    : null;
+                                return (
+                                <MenuItem key={rotator.id} value={String(rotator.id)} sx={{ py: 0.75 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                        <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
+                                            {rotator.name || rotator.id}
+                                        </Typography>
+                                        {inUseLabel && (
+                                            <Chip
+                                                size="small"
+                                                color="warning"
+                                                label={inUseLabel}
+                                                sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0 }}
+                                            />
+                                        )}
+                                        <Chip
+                                            size="small"
+                                            label={`${rotator.host}:${rotator.port}`}
+                                            variant="outlined"
+                                            sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0, fontFamily: 'monospace' }}
+                                        />
+                                    </Box>
+                                </MenuItem>
+                            );
+                            })}
+                        </Select>
+                    </FormControl>
+
+                    <FormControl
+                        size="small"
+                        fullWidth
+                        variant="outlined"
+                        sx={{ minWidth: 200, mt: 0, mb: 0.5 }}
+                    >
+                        <InputLabel id="create-target-rig-label">Rig</InputLabel>
+                        <Select
+                            labelId="create-target-rig-label"
+                            value={createSelectedRigId}
+                            label="Rig"
+                            onChange={(event) => setCreateSelectedRigId(String(event.target.value))}
+                            renderValue={(selected) => {
+                                if (String(selected) === 'none') return 'No rig control';
+                                const selectedRig = rigRows.find((row) => String(row.id) === String(selected));
+                                if (!selectedRig) return 'No rig control';
+                                const usageRows = rigUsageById[String(selectedRig.id)] || [];
+                                const inUseLabel = usageRows.length > 0
+                                    ? `In use ${usageRows.slice(0, 2).map((row) => `T${row.targetNumber}`).join(',')}`
+                                    : null;
+                                return (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                        <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
+                                            {selectedRig.name}
+                                        </Typography>
+                                        {inUseLabel && (
+                                            <Chip
+                                                size="small"
+                                                color="warning"
+                                                label={inUseLabel}
+                                                sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0 }}
+                                            />
+                                        )}
+                                        <Chip
+                                            size="small"
+                                            label={`${selectedRig.host}:${selectedRig.port}`}
+                                            variant="outlined"
+                                            sx={{ height: 18, fontSize: '0.62rem', fontFamily: 'monospace', flexShrink: 0 }}
+                                        />
+                                    </Box>
+                                );
+                            }}
+                        >
+                            <MenuItem value="none">
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                        No rig control
+                                    </Typography>
+                                    <Chip
+                                        label="None"
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ ml: 'auto', height: 18, fontSize: '0.62rem' }}
+                                    />
+                                </Box>
+                            </MenuItem>
+                            {rigRows.map((rig) => {
+                                const usageRows = rigUsageById[String(rig.id)] || [];
+                                const inUseLabel = usageRows.length > 0
+                                    ? `In use ${usageRows.slice(0, 2).map((row) => `T${row.targetNumber}`).join(',')}`
+                                    : null;
+                                return (
+                                <MenuItem key={rig.id} value={String(rig.id)} sx={{ py: 0.75 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                        <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
+                                            {rig.name || rig.id}
+                                        </Typography>
+                                        {inUseLabel && (
+                                            <Chip
+                                                size="small"
+                                                color="warning"
+                                                label={inUseLabel}
+                                                sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0 }}
+                                            />
+                                        )}
+                                        <Chip
+                                            size="small"
+                                            label={`${rig.host}:${rig.port}`}
+                                            variant="outlined"
+                                            sx={{ height: 18, fontSize: '0.62rem', flexShrink: 0, fontFamily: 'monospace' }}
+                                        />
+                                    </Box>
+                                </MenuItem>
+                            );
+                            })}
+                        </Select>
+                    </FormControl>
+                    </Box>
+
+                    <Box
+                        sx={{
+                            px: 1.25,
+                            py: 0.8,
+                            borderRadius: 1.25,
+                            backgroundColor: 'overlay.light',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                        }}
+                    >
+                        <Typography variant="caption" color="text.secondary">
+                            Preview: Create <strong>{nextTargetSlotId}</strong> for{' '}
+                            <strong>{createSelectedSatellite?.name || 'selected satellite'}</strong>
+                        </Typography>
+                    </Box>
+                </Box>
+            </DialogContent>
+            <DialogActions
+                sx={{
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                    borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+                    px: 3,
+                    py: 2,
+                    gap: 1.5,
+                }}
+            >
+                <Button
+                    variant="outlined"
+                    disabled={createTargetBusy}
+                    onClick={handleCloseCreateDialog}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    variant="contained"
+                    color="success"
+                    disabled={createTargetBusy || !createSelectedSatellite?.norad_id}
+                    onClick={handleCreateTargetSubmit}
+                    startIcon={createTargetBusy ? <CircularProgress color="inherit" size={16} /> : <AddCircleIcon />}
+                >
+                    Create Target
+                </Button>
+            </DialogActions>
+        </Dialog>
         <Box
             sx={{
                 display: 'flex',
@@ -290,120 +913,200 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
             >
                 <Box
                     sx={{
-                        width: '100%',
+                        width: 'auto',
+                        flex: '1 1 auto',
                         height: '100%',
                         display: 'flex',
                         alignItems: 'stretch',
                         minWidth: 0,
                     }}
                 >
-                    <Tabs
-                        value={tabValue}
-                        onChange={handleTargetTabChange}
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        allowScrollButtonsMobile
-                        sx={{
-                            width: '100%',
-                            minWidth: 0,
-                            minHeight: '100%',
-                            height: '100%',
-                            '& .MuiTabs-scroller': {
+                    {targetOptions.length === 0 ? (
+                        <Box
+                            sx={{
+                                px: 0.5,
                                 display: 'flex',
-                                alignItems: 'stretch',
-                            },
-                            '& .MuiTabs-scrollButtons': {
-                                flexShrink: 0,
-                            },
-                            '& .MuiTabs-scrollButtons.Mui-disabled': {
-                                width: 0,
+                                alignItems: 'center',
+                                gap: 0.5,
+                            }}
+                        >
+                            <IconButton
+                                onClick={handleOpenCreateDialog}
+                                sx={{
+                                    width: 42,
+                                    height: 42,
+                                    color: 'text.secondary',
+                                    '&:hover': {
+                                        backgroundColor: 'action.hover',
+                                    },
+                                }}
+                            >
+                                <Typography component="span" sx={{ fontSize: '1.6rem', lineHeight: 1, fontWeight: 700 }}>
+                                    +
+                                </Typography>
+                            </IconButton>
+                            <Typography
+                                variant="button"
+                                sx={{
+                                    color: 'text.secondary',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    lineHeight: 1,
+                                    ml: 0.2,
+                                }}
+                            >
+                                add target
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Tabs
+                            value={tabValue}
+                            onChange={handleTargetTabChange}
+                            variant="scrollable"
+                            scrollButtons="auto"
+                            allowScrollButtonsMobile
+                            sx={{
+                                width: 'auto',
                                 minWidth: 0,
-                                padding: 0,
-                                margin: 0,
-                            },
-                            '& .MuiTabs-flexContainer': {
                                 minHeight: '100%',
                                 height: '100%',
-                                alignItems: 'stretch',
-                            },
-                            '& .MuiTabs-indicator': { display: 'none' },
-                            '& .MuiTab-root': {
-                                minHeight: '100%',
-                                height: '100%',
-                                textTransform: 'none',
-                                px: 1.5,
-                                py: 0,
-                                mr: 0.25,
-                                minWidth: 120,
-                                borderRadius: 0,
-                                border: '1px solid transparent',
-                                borderColor: 'transparent',
-                                color: 'text.secondary',
-                                fontWeight: 600,
-                                '&.Mui-selected': {
-                                    color: 'primary.contrastText',
-                                    backgroundColor: 'primary.main',
-                                    borderColor: 'primary.dark',
-                                }
-                            },
-                        }}
-                    >
-                        {targetOptions.map((option) => {
-                            const shortName = option.satName.length > 20
-                                ? `${option.satName.slice(0, 20)}...`
-                                : option.satName;
-                            return (
-                                <Tab
-                                    key={option.trackerId}
-                                    value={option.trackerId}
-                                    label={
-                                        <Tooltip
-                                            title={`Target ${option.targetNumber} | ${option.satName} | NORAD ${option.satNorad} | Rotator ${option.rotatorId}`}
-                                            arrow
-                                        >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, maxWidth: 230 }}>
-                                                <Box
-                                                    sx={{
-                                                        width: 16,
-                                                        height: 16,
-                                                        borderRadius: '50%',
-                                                        bgcolor: option.isTracking ? 'success.light' : 'action.disabled',
-                                                        flexShrink: 0,
-                                                    }}
-                                                />
-                                                <Typography variant="caption" sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1 }}>
-                                                    T{option.targetNumber}
-                                                </Typography>
-                                                <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', maxWidth: 190 }}>
-                                                    <Typography
-                                                        variant="caption"
-                                                        noWrap
-                                                        sx={{ fontSize: '0.72rem', maxWidth: '100%', display: 'block', lineHeight: 1.1 }}
-                                                    >
-                                                        {shortName}
-                                                    </Typography>
-                                                    <Typography
-                                                        variant="caption"
-                                                        noWrap
+                                flex: '0 1 auto',
+                                '& .MuiTabs-scroller': {
+                                    display: 'flex',
+                                    alignItems: 'stretch',
+                                },
+                                '& .MuiTabs-scrollButtons': {
+                                    flexShrink: 0,
+                                },
+                                '& .MuiTabs-scrollButtons.Mui-disabled': {
+                                    width: 0,
+                                    minWidth: 0,
+                                    padding: 0,
+                                    margin: 0,
+                                },
+                                '& .MuiTabs-flexContainer': {
+                                    minHeight: '100%',
+                                    height: '100%',
+                                    alignItems: 'stretch',
+                                },
+                                '& .MuiTabs-indicator': { display: 'none' },
+                                '& .MuiTab-root': {
+                                    minHeight: '100%',
+                                    height: '100%',
+                                    textTransform: 'none',
+                                    px: 1.5,
+                                    py: 0,
+                                    mr: 0.25,
+                                    minWidth: 120,
+                                    borderRadius: 0,
+                                    border: '1px solid transparent',
+                                    borderColor: 'transparent',
+                                    color: 'text.secondary',
+                                    fontWeight: 600,
+                                    '&.Mui-selected': {
+                                        color: 'primary.contrastText',
+                                        backgroundColor: 'primary.main',
+                                        borderColor: 'primary.dark',
+                                    }
+                                },
+                            }}
+                        >
+                            {targetOptions.map((option) => {
+                                const shortName = option.satName.length > 20
+                                    ? `${option.satName.slice(0, 20)}...`
+                                    : option.satName;
+                                return (
+                                    <Tab
+                                        key={option.trackerId}
+                                        value={option.trackerId}
+                                        label={
+                                            <Tooltip
+                                                title={`Target ${option.targetNumber} | ${option.satName} | NORAD ${option.satNorad} | Rotator ${option.rotatorId}`}
+                                                arrow
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.7, maxWidth: 230 }}>
+                                                    <Box
                                                         sx={{
-                                                            display: 'block',
-                                                            fontSize: '0.61rem',
-                                                            opacity: 0.9,
-                                                            maxWidth: '100%',
-                                                            fontFamily: 'monospace',
-                                                            lineHeight: 1.05,
+                                                            width: 16,
+                                                            height: 16,
+                                                            borderRadius: '50%',
+                                                            bgcolor: option.isTracking ? 'success.light' : 'action.disabled',
+                                                            flexShrink: 0,
+                                                        }}
+                                                    />
+                                                    <Typography variant="caption" sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1 }}>
+                                                        T{option.targetNumber}
+                                                    </Typography>
+                                                    <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', maxWidth: 190 }}>
+                                                        <Typography
+                                                            variant="caption"
+                                                            noWrap
+                                                            sx={{ fontSize: '0.72rem', maxWidth: '100%', display: 'block', lineHeight: 1.1 }}
+                                                        >
+                                                            {shortName}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="caption"
+                                                            noWrap
+                                                            sx={{
+                                                                display: 'block',
+                                                                fontSize: '0.61rem',
+                                                                opacity: 0.9,
+                                                                maxWidth: '100%',
+                                                                fontFamily: 'monospace',
+                                                                lineHeight: 1.05,
+                                                            }}
+                                                        >
+                                                            {`Az ${option.satAz != null ? option.satAz.toFixed(1) : '--'}° • El ${option.satEl != null ? option.satEl.toFixed(1) : '--'}°`}
+                                                        </Typography>
+                                                    </Box>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(event) => handleDeleteTarget(event, option.trackerId)}
+                                                        sx={{
+                                                            p: 0.2,
+                                                            ml: 0.2,
+                                                            color: 'inherit',
+                                                            '&:hover': {
+                                                                bgcolor: 'rgba(255,255,255,0.16)',
+                                                            },
                                                         }}
                                                     >
-                                                        {`Az ${option.satAz != null ? option.satAz.toFixed(1) : '--'}° • El ${option.satEl != null ? option.satEl.toFixed(1) : '--'}°`}
-                                                    </Typography>
+                                                        <CloseIcon sx={{ fontSize: '0.78rem' }} />
+                                                    </IconButton>
                                                 </Box>
-                                            </Box>
-                                        </Tooltip>
-                                    }
-                                />
-                            );
-                        })}
-                    </Tabs>
+                                            </Tooltip>
+                                        }
+                                    />
+                                );
+                            })}
+                            <Tab
+                                value={ADD_TARGET_TAB_VALUE}
+                                label={
+                                    <Tooltip title="Add target" arrow>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18 }}>
+                                            <Typography component="span" sx={{ fontSize: '1.75rem', lineHeight: 1, fontWeight: 700 }}>
+                                                +
+                                            </Typography>
+                                        </Box>
+                                    </Tooltip>
+                                }
+                                sx={{
+                                    minWidth: '36px !important',
+                                    maxWidth: '36px !important',
+                                    width: '36px',
+                                    px: '0 !important',
+                                    mr: '0 !important',
+                                    '&.Mui-selected': {
+                                        color: 'text.secondary',
+                                        backgroundColor: 'transparent',
+                                        borderColor: 'transparent',
+                                    },
+                                }}
+                            />
+                        </Tabs>
+                    )}
                 </Box>
             </Box>
             <Box
@@ -413,6 +1116,7 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
                     minWidth: 280,
                     maxWidth: 360,
                     display: { xs: 'none', lg: 'flex' },
+                    gap: 1,
                 }}
             >
                 <SatelliteSearchAutocomplete

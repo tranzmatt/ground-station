@@ -29,7 +29,11 @@ import {
     TRACKER_COMMAND_SCOPES,
     TRACKER_COMMAND_STATUS,
 } from './tracking-constants.js';
-import { fetchTrackerInstances } from './tracker-instances-slice.jsx';
+import {
+    deleteTrackerInstance,
+    fetchTrackerInstances,
+    setTrackerInstances,
+} from './tracker-instances-slice.jsx';
 
 const normalizeSource = (source) => {
     if (typeof source !== 'string') {
@@ -207,6 +211,35 @@ const createDefaultTrackerView = () => ({
     selectedVFO1: "uplink",
     selectedVFO2: "downlink",
 });
+
+const resetActiveTrackerState = (state) => {
+    state.trackerId = DEFAULT_TRACKER_ID;
+    state.trackerViews = {};
+    state.groupId = "";
+    state.satelliteId = "";
+    state.groupOfSats = [];
+    state.trackingState = cloneDefaultTrackingState();
+    state.satelliteData = cloneDefaultSatelliteData();
+    state.availableTransmitters = [];
+    state.selectedRadioRig = "";
+    state.selectedRotator = "";
+    state.selectedTransmitter = "none";
+    state.selectedRigVFO = "none";
+    state.selectedVFO1 = "uplink";
+    state.selectedVFO2 = "downlink";
+    state.satellitePasses = [];
+    state.activePass = {};
+    state.passesLoading = false;
+    state.passesError = null;
+    state.cachedPasses = {};
+    state.fleetPassSummaryByTrackerId = {};
+    state.fleetPassSummaryComputedAtMs = 0;
+    state.fleetPassSummaryLoading = false;
+    state.fleetPassSummaryError = null;
+    state.rotatorData = cloneDefaultRotatorData();
+    state.lastRotatorEvent = "";
+    state.rigData = cloneDefaultRigData();
+};
 
 const parseScopedSelectionPayload = (payload, fallbackTrackerId) => {
     if (payload && typeof payload === 'object' && !Array.isArray(payload) && Object.prototype.hasOwnProperty.call(payload, 'value')) {
@@ -1414,13 +1447,39 @@ const targetSatTrackSlice = createSlice({
                     .filter((trackerId) => Boolean(trackerId));
 
                 if (trackerIds.length === 0) {
-                    state.trackerId = DEFAULT_TRACKER_ID;
+                    resetActiveTrackerState(state);
                     return;
                 }
 
                 const currentTrackerId = resolveTrackerId(state.trackerId, DEFAULT_TRACKER_ID);
                 if (!currentTrackerId || !trackerIds.includes(currentTrackerId)) {
                     state.trackerId = trackerIds[0];
+                }
+            })
+            .addCase(setTrackerInstances, (state, action) => {
+                const payload = action.payload || {};
+                const instances = Array.isArray(payload.instances) ? payload.instances : [];
+                const trackerIds = instances
+                    .map((instance) => resolveTrackerId(instance?.tracker_id, DEFAULT_TRACKER_ID))
+                    .filter((trackerId) => Boolean(trackerId));
+
+                if (trackerIds.length === 0) {
+                    resetActiveTrackerState(state);
+                    return;
+                }
+
+                const currentTrackerId = resolveTrackerId(state.trackerId, DEFAULT_TRACKER_ID);
+                if (!currentTrackerId || !trackerIds.includes(currentTrackerId)) {
+                    state.trackerId = trackerIds[0];
+                }
+            })
+            .addCase(deleteTrackerInstance.fulfilled, (state, action) => {
+                const deletedTrackerId = resolveTrackerId(
+                    action.payload?.tracker_id,
+                    DEFAULT_TRACKER_ID
+                );
+                if (deletedTrackerId) {
+                    delete state.trackerViews[deletedTrackerId];
                 }
             })
             .addCase(setTargetMapSetting.pending, (state) => {

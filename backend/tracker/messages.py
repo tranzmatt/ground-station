@@ -21,7 +21,7 @@ from typing import Any, Dict
 
 from common.constants import SocketEvents
 from tracker.contracts import InvalidTrackerIdError, require_tracker_id
-from tracker.runner import get_tracker_manager, queue_from_tracker
+from tracker.runner import get_existing_tracker_manager, queue_from_tracker
 from vfos.updates import handle_vfo_updates_for_tracking
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,10 @@ async def handle_tracker_messages(sockio):
                         await handle_vfo_updates_for_tracking(sockio, data)
                     if event == SocketEvents.SATELLITE_TRACKING:
                         try:
-                            manager = get_tracker_manager(tracker_id)
+                            manager = get_existing_tracker_manager(tracker_id)
+                            if manager is None:
+                                await asyncio.sleep(0)
+                                continue
                             status_events = manager.process_tracking_update(data)
                             for status in status_events:
                                 await sockio.emit(SocketEvents.TRACKER_COMMAND_STATUS, status)

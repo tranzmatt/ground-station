@@ -138,8 +138,33 @@ class TrackerSupervisor:
                 runtime.stop_event.set()
                 runtime.process.join(timeout=timeout)
                 if runtime.process.is_alive():
-                    runtime.process.kill()
-                    runtime.process.join()
+                    logger.warning(
+                        "Tracker process '%s' did not exit within %.1fs; killing process",
+                        normalized_id,
+                        timeout,
+                    )
+                    try:
+                        runtime.process.terminate()
+                    except Exception:
+                        pass
+                    runtime.process.join(timeout=0.3)
+                if runtime.process.is_alive():
+                    try:
+                        runtime.process.kill()
+                    except Exception:
+                        pass
+                    runtime.process.join(timeout=0.3)
+                    if runtime.process.is_alive():
+                        logger.error(
+                            "Tracker process '%s' is still alive after kill; continuing cleanup",
+                            normalized_id,
+                        )
+            # Avoid queue finalizer hangs during teardown.
+            try:
+                runtime.queue_to_tracker.cancel_join_thread()
+                runtime.queue_to_tracker.close()
+            except Exception:
+                pass
         finally:
             self.runtimes.pop(normalized_id, None)
             self.assign_rotator(normalized_id, None)
@@ -147,6 +172,13 @@ class TrackerSupervisor:
     def stop_all(self, timeout: float = 3.0) -> None:
         for tracker_id in list(self.runtimes.keys()):
             self.stop_tracker(tracker_id, timeout=timeout)
+
+    def remove_tracker(self, tracker_id: str, timeout: float = 3.0) -> Dict[str, Any]:
+        normalized_id = require_tracker_id(tracker_id)
+        self.stop_tracker(normalized_id, timeout=timeout)
+        self.managers.pop(normalized_id, None)
+        self.tracker_rotator_map.pop(normalized_id, None)
+        return {"success": True, "tracker_id": normalized_id}
 
     def get_runtime(self, tracker_id: str) -> Optional[TrackerRuntime]:
         return self.runtimes.get(require_tracker_id(tracker_id))
@@ -321,6 +353,15 @@ def stop_all_tracker_processes(timeout: float = 3.0) -> None:
 def get_tracker_manager(tracker_id: str) -> TrackerManager:
     manager = _tracker_supervisor.get_or_create_manager(tracker_id)
     return manager
+
+
+def get_existing_tracker_manager(tracker_id: str) -> Optional[TrackerManager]:
+    normalized_id = require_tracker_id(tracker_id)
+    return _tracker_supervisor.get_managers().get(normalized_id)
+
+
+def remove_tracker_instance(tracker_id: str, timeout: float = 3.0) -> Dict[str, Any]:
+    return _tracker_supervisor.remove_tracker(tracker_id, timeout=timeout)
 
 
 def get_tracker_supervisor() -> TrackerSupervisor:

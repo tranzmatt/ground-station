@@ -42,6 +42,7 @@ import {
     Tooltip,
     IconButton
 } from '@mui/material';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -71,6 +72,7 @@ const TargetSatelliteInfoIsland = () => {
     const dispatch = useDispatch();
     const { socket } = useSocket();
     const { satelliteData, gridEditable, satelliteId } = useSelector((state) => state.targetSatTrack);
+    const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const selectedSatellitePositions = useSelector(state => state.overviewSatTrack.selectedSatellitePositions);
     const navigate = useNavigate();
     const transmitters = satelliteData?.transmitters || [];
@@ -78,6 +80,8 @@ const TargetSatelliteInfoIsland = () => {
     const [transmittersDialogOpen, setTransmittersDialogOpen] = React.useState(false);
     const selectedNoradId = satelliteData?.details?.norad_id || satelliteId || null;
     const selectedSatelliteName = satelliteData?.details?.name || '';
+    const hasTargets = trackerInstances.length > 0;
+    const hasSatelliteSelection = Boolean(selectedNoradId);
     const satelliteDialogData = {
         ...(satelliteData?.details || {}),
         norad_id: selectedNoradId,
@@ -221,6 +225,43 @@ const TargetSatelliteInfoIsland = () => {
                 </Box>
             </TitleBar>
 
+            {!hasSatelliteSelection && (
+                <Box
+                    sx={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        px: 2,
+                    }}
+                >
+                    <Box
+                        sx={{
+                            width: '100%',
+                            maxWidth: 380,
+                            textAlign: 'center',
+                            p: 2.5,
+                            borderRadius: 1.25,
+                            border: '1px dashed',
+                            borderColor: 'border.main',
+                            backgroundColor: 'overlay.light',
+                        }}
+                    >
+                        <TrackChangesIcon sx={{ color: 'text.secondary', mb: 1 }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            {hasTargets ? 'No satellite selected' : 'No targets configured'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {hasTargets
+                                ? 'Choose a satellite from the target selector to view live orbital details.'
+                                : 'Create a target first, then select a satellite to see telemetry and metadata.'}
+                        </Typography>
+                    </Box>
+                </Box>
+            )}
+
+            {hasSatelliteSelection && (
+            <>
             {/* Satellite Status Header - Sticky */}
             <Box sx={{
                 p: 1,
@@ -833,6 +874,8 @@ const TargetSatelliteInfoIsland = () => {
                 variant="paper"
                 widthOffsetPx={20}
             />
+            </>
+            )}
         </Box>
     );
 }
