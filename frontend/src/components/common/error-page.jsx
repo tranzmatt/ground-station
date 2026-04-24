@@ -33,11 +33,13 @@ import {
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import HomeIcon from '@mui/icons-material/Home';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 const ErrorPage = () => {
     const error = useRouteError();
     const navigate = useNavigate();
     const [showStack, setShowStack] = React.useState(false);
+    const [copyState, setCopyState] = React.useState('idle');
     const isDev = import.meta.env.DEV;
     const status = error?.status || 500;
     const title = status === 404 ? 'Page Not Found' : 'Application Error';
@@ -47,6 +49,18 @@ const ErrorPage = () => {
         : 'Please try refreshing the page. If the problem persists, check backend connectivity.';
     const stackText = error?.stack || 'No stack trace available.';
     const stackLines = stackText.split('\n').filter((line) => line.trim().length > 0);
+    const debugDetails = `Message: ${message}\n\nStack trace:\n${stackText}`;
+
+    const handleCopyDetails = React.useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(debugDetails);
+            setCopyState('copied');
+            window.setTimeout(() => setCopyState('idle'), 1500);
+        } catch {
+            setCopyState('failed');
+            window.setTimeout(() => setCopyState('idle'), 2000);
+        }
+    }, [debugDetails]);
 
     return (
         <Container
@@ -134,11 +148,23 @@ const ErrorPage = () => {
                                         }}
                                     >
                                         <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                                            Stack Trace
+                                            Error Details
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {stackLines.length} line{stackLines.length === 1 ? '' : 's'}
-                                        </Typography>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <Typography variant="caption" color="text.secondary">
+                                                {stackLines.length} line{stackLines.length === 1 ? '' : 's'}
+                                            </Typography>
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                color={copyState === 'failed' ? 'error' : 'primary'}
+                                                startIcon={<ContentCopyIcon />}
+                                                onClick={handleCopyDetails}
+                                                sx={{ textTransform: 'none', minWidth: 0, px: 1 }}
+                                            >
+                                                {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy details'}
+                                            </Button>
+                                        </Stack>
                                     </Box>
                                     <Box
                                         sx={{
@@ -148,6 +174,43 @@ const ErrorPage = () => {
                                             fontSize: 12,
                                         }}
                                     >
+                                        <Box
+                                            sx={{
+                                                display: 'grid',
+                                                gridTemplateColumns: '40px 1fr',
+                                                columnGap: 1,
+                                                px: 1.5,
+                                                py: 0.4,
+                                                borderBottom: '1px solid',
+                                                borderColor: 'divider',
+                                                '&:hover': { bgcolor: 'action.hover' },
+                                            }}
+                                        >
+                                            <Typography
+                                                component="span"
+                                                sx={{
+                                                    color: 'text.disabled',
+                                                    textAlign: 'right',
+                                                    userSelect: 'none',
+                                                    fontSize: 12,
+                                                }}
+                                            >
+                                                msg
+                                            </Typography>
+                                            <Typography
+                                                component="pre"
+                                                sx={{
+                                                    m: 0,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-word',
+                                                    color: 'error.main',
+                                                    fontSize: 12,
+                                                    lineHeight: 1.45,
+                                                }}
+                                            >
+                                                {message}
+                                            </Typography>
+                                        </Box>
                                         {stackLines.map((line, idx) => (
                                             <Box
                                                 key={`${idx}-${line}`}
