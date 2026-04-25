@@ -359,6 +359,35 @@ const HardwareSettingsPopover = () => {
                         const statusLabel = isRotatorPanel
                             ? (row.rotatorData?.tracking ? 'Tracking' : (row.rotatorData?.connected ? 'Connected' : 'Disconnected'))
                             : (row.rigData?.tracking ? 'Tracking' : (row.rigData?.connected ? 'Connected' : 'Disconnected'));
+                        const warningPillLabel = (() => {
+                            if (statusLabel === 'Disconnected') {
+                                return null;
+                            }
+                            if (isRotatorPanel) {
+                                const elevation = Number(row.rotatorData?.el);
+                                const isBelowHorizon = Number.isFinite(elevation) && elevation < 0;
+                                if (isBelowHorizon) {
+                                    return t('hardware_popover.warning_below_horizon', { defaultValue: 'Below Horizon' });
+                                }
+                                if (row.rotatorData?.minelevation) {
+                                    return t('hardware_popover.warning_below_min_elevation', { defaultValue: 'Below Min Elevation' });
+                                }
+                                if (row.rotatorData?.outofbounds) {
+                                    return t('hardware_popover.warning_out_of_bounds', { defaultValue: 'Out of Bounds' });
+                                }
+                                if (row.rotatorData?.parked) {
+                                    return t('hardware_popover.warning_parked', { defaultValue: 'Parked' });
+                                }
+                                if (row.rotatorData?.stopped) {
+                                    return t('hardware_popover.warning_stopped', { defaultValue: 'Stopped' });
+                                }
+                                return null;
+                            }
+                            if (row.rigData?.stopped) {
+                                return t('hardware_popover.warning_stopped', { defaultValue: 'Stopped' });
+                            }
+                            return null;
+                        })();
                         const formatHz = (value) => (
                             Number.isFinite(Number(value))
                                 ? Number(value).toFixed(0)
@@ -466,13 +495,46 @@ const HardwareSettingsPopover = () => {
                                         </Box>
                                     )}
                                     statusChip={(
-                                        <Chip
-                                            size="small"
-                                            label={statusLabel}
-                                            color={statusLabel === 'Tracking' ? 'success' : (statusLabel === 'Connected' ? 'info' : 'default')}
-                                            variant={statusLabel === 'Disconnected' ? 'outlined' : 'filled'}
-                                            sx={{ '& .MuiChip-label': { fontSize: '11px' } }}
-                                        />
+                                        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'nowrap', minWidth: 0 }}>
+                                            <Tooltip title={statusLabel}>
+                                                <Chip
+                                                    size="small"
+                                                    label={statusLabel}
+                                                    color={statusLabel === 'Tracking' ? 'success' : (statusLabel === 'Connected' ? 'info' : 'default')}
+                                                    variant={statusLabel === 'Disconnected' ? 'outlined' : 'filled'}
+                                                    sx={{
+                                                        maxWidth: 110,
+                                                        minWidth: 0,
+                                                        '& .MuiChip-label': {
+                                                            fontSize: '11px',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                        }
+                                                    }}
+                                                />
+                                            </Tooltip>
+                                            {warningPillLabel && (
+                                                <Tooltip title={warningPillLabel}>
+                                                    <Chip
+                                                        size="small"
+                                                        label={warningPillLabel}
+                                                        color="warning"
+                                                        variant="outlined"
+                                                        sx={{
+                                                            maxWidth: 130,
+                                                            minWidth: 0,
+                                                            '& .MuiChip-label': {
+                                                                fontSize: '11px',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }
+                                                        }}
+                                                    />
+                                                </Tooltip>
+                                            )}
+                                        </Stack>
                                     )}
                                     actions={(
                                         <Stack direction="row" spacing={0.5}>
@@ -631,8 +693,8 @@ const HardwareSettingsPopover = () => {
                 border: '1px solid',
                 borderColor: 'border.main',
                 p: 0,
-                minWidth: 340,
-                width: 340,
+                minWidth: 380,
+                width: 380,
                 backgroundColor: 'background.paper',
             }}>
                 {renderCompactFleetPanel()}
