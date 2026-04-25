@@ -594,6 +594,15 @@ const HardwareSettingsPopover = () => {
                         color={getFleetBadgeColor(fleetHardwareSummary.rig)}
                         max={99}
                         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        sx={{
+                            '& .MuiBadge-badge': {
+                                minWidth: 14,
+                                height: 14,
+                                px: 0.45,
+                                fontSize: '0.58rem',
+                                fontWeight: 700,
+                            },
+                        }}
                     >
                         <RadioIcon sx={{ fontSize: 22 }} />
                     </Badge>
