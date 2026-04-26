@@ -232,8 +232,6 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
     const {
         trackingState,
         trackerId,
-        selectedRadioRig,
-        selectedTransmitter,
     } = useSelector((state) => state.targetSatTrack);
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const schedulerObservations = useSelector((state) => state.scheduler?.observations || []);
@@ -497,66 +495,82 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
                 if (!selectedAssignment) {
                     return { success: false };
                 }
-            const assignmentAction = String(selectedAssignment?.action || 'retarget_current_slot');
-            const isCreateNewSlot = assignmentAction === 'create_new_slot';
-            const selectedTrackerId = String(selectedAssignment?.trackerId || '');
-            const rotatorId = String(selectedAssignment?.rotatorId || 'none');
-            const assignmentRigId = String(selectedAssignment?.rigId || 'none');
-            if (!selectedTrackerId) {
+                const assignmentAction = String(selectedAssignment?.action || 'retarget_current_slot');
+                const isCreateNewSlot = assignmentAction === 'create_new_slot';
+                const selectedTrackerId = String(selectedAssignment?.trackerId || '');
+                const rotatorId = String(selectedAssignment?.rotatorId || 'none');
+                const assignmentRigId = String(selectedAssignment?.rigId || 'none');
+                if (!selectedTrackerId) {
                     return { success: false, errorMessage: 'Missing target tracker slot.' };
-            }
-            const selectedGroupId = satellite?.groups?.[0]?.id || trackingState?.group_id || "";
-            const nextTransmitters = getTransmittersFromSatellite(satellite);
-            const nextRigId = isCreateNewSlot ? assignmentRigId : selectedRadioRig;
-            const nextRotatorId = isCreateNewSlot ? 'none' : rotatorId;
-            const nextTransmitterId = isCreateNewSlot ? 'none' : selectedTransmitter;
-
-            const data = isCreateNewSlot
-                ? {
-                    tracker_id: selectedTrackerId,
-                    norad_id: satellite.norad_id,
-                    group_id: selectedGroupId,
-                    rig_id: nextRigId,
-                    rotator_id: nextRotatorId,
-                    transmitter_id: 'none',
-                    rig_state: 'disconnected',
-                    rotator_state: 'disconnected',
-                    rig_vfo: 'none',
-                    vfo1: 'uplink',
-                    vfo2: 'downlink',
                 }
-                : {
-                    ...trackingState,
-                    tracker_id: selectedTrackerId,
-                    norad_id: satellite.norad_id,
-                    group_id: selectedGroupId,
-                    rig_id: nextRigId,
-                    rotator_id: nextRotatorId,
-                    transmitter_id: nextTransmitterId,
-                };
 
-            try {
-                await dispatch(setTrackingStateInBackend({ socket, data })).unwrap();
-                dispatch(setTrackerId(selectedTrackerId));
-                dispatch(setSatelliteId(satellite.norad_id));
-                dispatch(setRotator({ value: nextRotatorId, trackerId: selectedTrackerId }));
-                dispatch(setRadioRig({ value: nextRigId, trackerId: selectedTrackerId }));
-                dispatch(setAvailableTransmitters(nextTransmitters));
-                setSearchResetKey((value) => value + 1);
-                    return { success: true };
-            } catch (error) {
-                const errorCode = String(error?.error || error?.code || '').trim();
-                if (errorCode === 'tracker_slot_limit_reached') {
-                        const limitMessage = emitTrackingErrorToast(
-                        error,
-                        'Failed to set target',
-                        { suppressLimitToast: true, suppressToast: true },
+                const selectedTrackerInstance = trackerInstances.find(
+                    (instance) => String(instance?.tracker_id || '') === selectedTrackerId
+                );
+                const selectedTrackerView = trackerViews?.[selectedTrackerId] || {};
+                // Preserve runtime state from the destination slot to avoid cross-slot state leakage.
+                const selectedTrackerState = selectedTrackerView?.trackingState || selectedTrackerInstance?.tracking_state || {};
+                const selectedGroupId = satellite?.groups?.[0]?.id || selectedTrackerState?.group_id || trackingState?.group_id || "";
+                const nextTransmitters = getTransmittersFromSatellite(satellite);
+                const nextRigId = isCreateNewSlot
+                    ? assignmentRigId
+                    : String(
+                        selectedTrackerView?.selectedRadioRig
+                        ?? selectedTrackerState?.rig_id
+                        ?? assignmentRigId
+                        ?? 'none'
                     );
+                const nextRotatorId = isCreateNewSlot ? 'none' : rotatorId;
+                const nextTransmitterId = isCreateNewSlot
+                    ? 'none'
+                    : String(selectedTrackerState?.transmitter_id || 'none');
+
+                const data = isCreateNewSlot
+                    ? {
+                        tracker_id: selectedTrackerId,
+                        norad_id: satellite.norad_id,
+                        group_id: selectedGroupId,
+                        rig_id: nextRigId,
+                        rotator_id: nextRotatorId,
+                        transmitter_id: 'none',
+                        rig_state: 'disconnected',
+                        rotator_state: 'disconnected',
+                        rig_vfo: 'none',
+                        vfo1: 'uplink',
+                        vfo2: 'downlink',
+                    }
+                    : {
+                        ...selectedTrackerState,
+                        tracker_id: selectedTrackerId,
+                        norad_id: satellite.norad_id,
+                        group_id: selectedGroupId,
+                        rig_id: nextRigId,
+                        rotator_id: nextRotatorId,
+                        transmitter_id: nextTransmitterId,
+                    };
+
+                try {
+                    await dispatch(setTrackingStateInBackend({ socket, data })).unwrap();
+                    dispatch(setTrackerId(selectedTrackerId));
+                    dispatch(setSatelliteId(satellite.norad_id));
+                    dispatch(setRotator({ value: nextRotatorId, trackerId: selectedTrackerId }));
+                    dispatch(setRadioRig({ value: nextRigId, trackerId: selectedTrackerId }));
+                    dispatch(setAvailableTransmitters(nextTransmitters));
+                    setSearchResetKey((value) => value + 1);
+                    return { success: true };
+                } catch (error) {
+                    const errorCode = String(error?.error || error?.code || '').trim();
+                    if (errorCode === 'tracker_slot_limit_reached') {
+                        const limitMessage = emitTrackingErrorToast(
+                            error,
+                            'Failed to set target',
+                            { suppressLimitToast: true, suppressToast: true },
+                        );
                         return { success: false, errorMessage: limitMessage };
-                }
+                    }
                     const message = emitTrackingErrorToast(error, 'Failed to set target');
                     return { success: false, errorMessage: message };
-            }
+                }
             },
         });
     }, [
@@ -564,9 +578,9 @@ const TargetSatelliteSelectorBar = React.memo(function TargetSatelliteSelectorBa
         emitTrackingErrorToast,
         getTransmittersFromSatellite,
         requestRotatorForTarget,
-        selectedRadioRig,
-        selectedTransmitter,
         socket,
+        trackerInstances,
+        trackerViews,
         trackingState,
     ]);
 

@@ -177,9 +177,9 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
     const selectedSatGroupId = useSelector((state) => state.overviewSatTrack.selectedSatGroupId);
     const {
         trackingState,
-        selectedRadioRig,
-        selectedTransmitter
+        trackerViews,
     } = useSelector(state => state.targetSatTrack);
+    const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const { requestRotatorForTarget, dialog: rotatorSelectionDialog } = useTargetRotatorSelectionDialog();
 
     const {width, containerRef, mounted} = useContainerWidth({measureBeforeMount: true});
@@ -450,20 +450,60 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
         if (!selectedAssignment) {
             return;
         }
-        const { rotatorId, trackerId } = selectedAssignment;
-        dispatch(setRotator(rotatorId));
-        dispatch(setTrackerId(trackerId));
+        const assignmentAction = String(selectedAssignment?.action || 'retarget_current_slot');
+        const isCreateNewSlot = assignmentAction === 'create_new_slot';
+        const trackerId = String(selectedAssignment?.trackerId || '');
+        const rotatorId = String(selectedAssignment?.rotatorId || 'none');
+        const assignmentRigId = String(selectedAssignment?.rigId || 'none');
+        if (!trackerId) {
+            return;
+        }
 
-        const newTrackingState = {
-            'tracker_id': trackerId,
-            'norad_id': noradId,
-            'group_id': selectedSatGroupId,
-            'rotator_state': trackingState['rotator_state'],
-            'rig_state': trackingState['rig_state'],
-            'rig_id': selectedRadioRig,
-            'rotator_id': rotatorId,
-            'transmitter_id': selectedTransmitter,
-        };
+        const selectedTrackerInstance = trackerInstances.find(
+            (instance) => String(instance?.tracker_id || '') === trackerId
+        );
+        const selectedTrackerView = trackerViews?.[trackerId] || {};
+        const selectedTrackerState = selectedTrackerView?.trackingState || selectedTrackerInstance?.tracking_state || {};
+        const nextRigId = isCreateNewSlot
+            ? assignmentRigId
+            : String(
+                selectedTrackerView?.selectedRadioRig
+                ?? selectedTrackerState?.rig_id
+                ?? assignmentRigId
+                ?? 'none'
+            );
+        const nextRotatorId = isCreateNewSlot ? 'none' : rotatorId;
+        const nextTransmitterId = isCreateNewSlot
+            ? 'none'
+            : String(selectedTrackerState?.transmitter_id || 'none');
+        const nextGroupId = selectedSatGroupId || selectedTrackerState?.group_id || trackingState?.group_id || '';
+
+        dispatch(setTrackerId(trackerId));
+        dispatch(setRotator({ value: nextRotatorId, trackerId }));
+
+        const newTrackingState = isCreateNewSlot
+            ? {
+                tracker_id: trackerId,
+                norad_id: noradId,
+                group_id: nextGroupId,
+                rig_id: nextRigId,
+                rotator_id: nextRotatorId,
+                transmitter_id: 'none',
+                rig_state: 'disconnected',
+                rotator_state: 'disconnected',
+                rig_vfo: 'none',
+                vfo1: 'uplink',
+                vfo2: 'downlink',
+            }
+            : {
+                ...selectedTrackerState,
+                tracker_id: trackerId,
+                norad_id: noradId,
+                group_id: nextGroupId,
+                rig_id: nextRigId,
+                rotator_id: nextRotatorId,
+                transmitter_id: nextTransmitterId,
+            };
 
         dispatch(setTrackingStateInBackend({socket, data: newTrackingState}))
             .unwrap()

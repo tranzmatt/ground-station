@@ -50,7 +50,6 @@ import {
 import Grid from "@mui/material/Grid";
 import {Box, Button, Chip, FormControl, IconButton, InputLabel, ListSubheader, MenuItem, Select, Tooltip} from "@mui/material";
 import SwapVertIcon from '@mui/icons-material/SwapVert';
-import SatelliteList from "../target/satellite-dropdown.jsx";
 import Typography from "@mui/material/Typography";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";

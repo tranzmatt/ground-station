@@ -25,7 +25,6 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import 'leaflet/dist/leaflet.css';
 import {Box, Fab, Slider} from "@mui/material";
-import SatSelectorIsland from "./satellite-selector.jsx";
 import {
     StyledIslandParent,
     StyledIslandParentNoScrollbar,
@@ -655,9 +654,6 @@ const TargetSatelliteLayout = React.memo(function TargetSatelliteLayout() {
         <StyledIslandParentNoScrollbar key="passes">
             <NextPassesIsland/>
         </StyledIslandParentNoScrollbar>,
-        // <StyledIslandParentScrollbar key="satselector">
-        //     <SatSelectorIsland initialNoradId={noradId} initialGroupId={groupId}/>
-        // </StyledIslandParentScrollbar>,
         <StyledIslandParentNoScrollbar key="timeline">
             <SatellitePassTimeline
                 timeWindowHours={nextPassesHours}
