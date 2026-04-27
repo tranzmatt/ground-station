@@ -116,19 +116,10 @@ export function autoScaleDbRange(waterfallHistory, preset = 'medium') {
             minDb = filteredValues.reduce((a, b) => Math.min(a, b), filteredValues[0]);
             maxDb = filteredValues.reduce((a, b) => Math.max(a, b), filteredValues[0]);
 
-            // Slightly wider weak preset to avoid overly aggressive auto-scaling.
-            const weakPaddingDb = 3;
+            // Keep weak preset tighter than medium, with only slight relaxation.
+            const weakPaddingDb = 1;
             minDb = Math.floor(minDb - weakPaddingDb);
             maxDb = Math.ceil(maxDb + weakPaddingDb);
-
-            // Prevent ultra-tight ranges that make weak mode look too jumpy/harsh.
-            const minWeakSpanDb = 18;
-            const weakSpan = maxDb - minDb;
-            if (weakSpan < minWeakSpanDb) {
-                const centerDb = (minDb + maxDb) / 2;
-                minDb = Math.floor(centerDb - minWeakSpanDb / 2);
-                maxDb = Math.ceil(centerDb + minWeakSpanDb / 2);
-            }
             break;
         }
     }
