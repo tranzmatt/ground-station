@@ -39,7 +39,6 @@ import RadioIcon from '@mui/icons-material/Radio';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ExploreIcon from '@mui/icons-material/Explore';
-import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import { store } from '../components/common/store.jsx';
 import { setSyncState } from '../components/satellites/synchronize-slice.jsx';
 import { setSatelliteData, setUITrackerValues, setTrackerCommandStatus } from '../components/target/target-slice.jsx';
@@ -391,49 +390,13 @@ export const useSocketEventHandlers = (socket) => {
             if (message['events']) {
                 message['events'].forEach(event => {
                     if (event.name === 'rotator_connected') {
-                        const rotatorData = message['rotator_data'];
-                        toast.success(
-                            <ToastMessage
-                                title={t('notifications.rotator.connected')}
-                                body={`${rotatorData.host}:${rotatorData.port}`}
-                            />,
-                            {
-                                icon: () => <SettingsInputAntennaIcon />,
-                            }
-                        );
+                        // Intentionally silent: suppress rotator connect toast.
                     } else if (event.name === 'rotator_disconnected') {
-                        const rotatorData = message['rotator_data'];
-                        toast.warning(
-                            <ToastMessage
-                                title={t('notifications.rotator.disconnected')}
-                                body={`${rotatorData.host}:${rotatorData.port}`}
-                            />,
-                            {
-                                icon: () => <SettingsInputAntennaIcon />,
-                            }
-                        );
+                        // Intentionally silent: suppress rotator disconnect toast.
                     } else if (event.name === 'rig_connected') {
-                        const rigData = message['rig_data'];
-                        toast.success(
-                            <ToastMessage
-                                title={t('notifications.radio.connected')}
-                                body={`${rigData.host}:${rigData.port}`}
-                            />,
-                            {
-                                icon: () => <RadioIcon />,
-                            }
-                        );
+                        // Intentionally silent: suppress rig connect toast.
                     } else if (event.name === 'rig_disconnected') {
-                        const rigData = message['rig_data'];
-                        toast.warning(
-                            <ToastMessage
-                                title={t('notifications.radio.disconnected')}
-                                body={`${rigData.host}:${rigData.port}`}
-                            />,
-                            {
-                                icon: () => <RadioIcon />,
-                            }
-                        );
+                        // Intentionally silent: suppress rig disconnect toast.
                     } else if (event.name === 'min_elevation_out_of_bounds') {
                         const satelliteData = message['data']?.['satellite_data'];
                         const satName = satelliteData?.details?.name || 'Unknown';
@@ -487,18 +450,7 @@ export const useSocketEventHandlers = (socket) => {
                             }
                         );
                     } else if (event.name === 'norad_id_change') {
-                        const satelliteData = message['data'];
-                        const satName = satelliteData?.details?.name || 'Unknown';
-                        const noradId = satelliteData?.details?.norad_id || '';
-                        toast.info(
-                            <ToastMessage
-                                title={t('notifications.tracking.satellite_changed')}
-                                body={t('notifications.tracking.satellite_info', { name: satName, noradId })}
-                            />,
-                            {
-                                icon: () => <SatelliteAltIcon />,
-                            }
-                        );
+                        // Intentionally silent: suppress target change toast.
                     } else if (event.name === 'rotator_error') {
                         const rotatorData = message['rotator_data'];
                         toast.error(
