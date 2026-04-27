@@ -23,6 +23,7 @@ import { ReactRouterAppProvider } from "@toolpad/core/react-router";
 import { setupTheme } from './theme.js';
 import { useSocket } from "./components/common/socket.jsx";
 import { AudioProvider } from "./components/dashboard/audio-provider.jsx";
+import { WaterfallEngineProvider } from './components/waterfall/waterfall-engine-provider.jsx';
 import { ToastContainerWithStyles } from "./utils/toast-container.jsx";
 import { getNavigation } from "./config/navigation.jsx";
 import { BRANDING } from "./config/branding.jsx";
@@ -85,14 +86,16 @@ export default function App() {
 
     return (
         <AudioProvider>
-            <ReactRouterAppProvider
-                key={`app-provider-${i18n.language}-${showCelestial ? 'celestial-on' : 'celestial-off'}`}
-                navigation={navigation}
-                theme={dashboardTheme}
-                branding={BRANDING}
-            >
-                <Outlet/>
-            </ReactRouterAppProvider>
+            <WaterfallEngineProvider>
+                <ReactRouterAppProvider
+                    key={`app-provider-${i18n.language}-${showCelestial ? 'celestial-on' : 'celestial-off'}`}
+                    navigation={navigation}
+                    theme={dashboardTheme}
+                    branding={BRANDING}
+                >
+                    <Outlet/>
+                </ReactRouterAppProvider>
+            </WaterfallEngineProvider>
             <ToastContainerWithStyles />
         </AudioProvider>
     );

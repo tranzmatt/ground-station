@@ -194,9 +194,16 @@ self.onmessage = function(eventMessage) {
             dBAxisCtx.imageSmoothingEnabled = true;
             dBAxisCtx.imageSmoothingQuality = 'high';
 
-            setupCanvas(eventMessage.data.config);
+            // Preserve ring-buffer history when (re)attaching visible canvases.
+            setupCanvas(eventMessage.data.config, { preserveRing: true });
 
             // Start monitoring when canvas is initialized
+            startFftRateMonitoring();
+            break;
+
+        case 'initHeadless':
+            // Configure ring-buffer rendering even when no visible canvas is attached.
+            setupCanvas(eventMessage.data.config);
             startFftRateMonitoring();
             break;
 
@@ -206,7 +213,7 @@ self.onmessage = function(eventMessage) {
             waterfallHistory = []; // Clear any existing history
             collectAutoScaleHistory = true;
 
-            startRendering(eventMessage.data.fps || targetFPS);
+            startRendering(eventMessage.data.fps || eventMessage.data?.data?.fps || targetFPS);
             break;
 
         case 'stop':
@@ -214,7 +221,7 @@ self.onmessage = function(eventMessage) {
             break;
 
         case 'updateFPS':
-            updateFPS(eventMessage.data.fps);
+            updateFPS(eventMessage.data.fps || eventMessage.data?.data?.fps);
             break;
 
         case 'toggleRotatorDottedLines':
@@ -391,8 +398,15 @@ self.onmessage = function(eventMessage) {
             break;
 
         case 'releaseCanvas':
+        case 'detachCanvases':
             waterfallCanvas = null;
+            bandscopeCanvas = null;
+            dBAxisCanvas = null;
+            waterfallLeftMarginCanvas = null;
             waterfallCtx = null;
+            bandscopeCtx = null;
+            dBAxisCtx = null;
+            waterFallLeftMarginCtx = null;
             break;
 
         case 'startMonitoring':
@@ -478,6 +492,10 @@ self.onmessage = function(eventMessage) {
 
 // Function to throttle bandscope drawing
 function throttledDrawBandscope() {
+    if (!bandscopeCtx || !bandscopeCanvas || !dBAxisCtx || !dBAxisCanvas) {
+        return;
+    }
+
     const now = Date.now();
 
     // Only draw if enough time has passed since the last draw
@@ -513,6 +531,8 @@ function throttledDrawBandscope() {
 }
 
 function startFftRateMonitoring() {
+    stopFftRateMonitoring();
+
     // Reset counters
     fftUpdateCount = 0;
     renderWaterfallCount = 0; // Reset renderWaterfall counter
@@ -557,38 +577,68 @@ function stopFftRateMonitoring() {
     }
 }
 
-function setupCanvas(config) {
-    if (!waterfallCanvas || !waterfallCtx) return;
+function setupCanvas(config = {}, options = {}) {
+    const preserveRing = options.preserveRing === true;
+    const width = Number(config.width) || waterfallCanvas?.width || ringCanvas?.width || 0;
+    const height = Number(config.height) || waterfallCanvas?.height || ringCanvas?.height || 0;
 
-    waterfallCanvas.width = config.width;
-    waterfallCanvas.height = config.height;
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    if (waterfallCanvas) {
+        waterfallCanvas.width = width;
+        waterfallCanvas.height = height;
+    }
+
+    const previousRingWidth = ringCanvas?.width || 0;
+    const previousRingHeight = ringCanvas?.height || 0;
 
     // Initialize or resize the ring buffer canvas to match
     if (!ringCanvas) {
-        ringCanvas = new OffscreenCanvas(waterfallCanvas.width, waterfallCanvas.height);
-    } else if (ringCanvas.width !== waterfallCanvas.width || ringCanvas.height !== waterfallCanvas.height) {
-        ringCanvas.width = waterfallCanvas.width;
-        ringCanvas.height = waterfallCanvas.height;
+        ringCanvas = new OffscreenCanvas(width, height);
+    } else if (ringCanvas.width !== width || ringCanvas.height !== height) {
+        ringCanvas.width = width;
+        ringCanvas.height = height;
     }
     ringCtx = ringCanvas.getContext('2d', {
         alpha: true,
         desynchronized: true,
         willReadFrequently: false,
     });
-    ringCtx.imageSmoothingEnabled = false;
-    ringHeadY = 0;
-    pendingRowsToPresent = 0;
-    needsPresent = false;
+    if (ringCtx) {
+        ringCtx.imageSmoothingEnabled = false;
+    }
 
-    // Initialize the imageData for faster rendering
-    imageData = waterfallCtx.createImageData(waterfallCanvas.width, 1);
+    const ringSizeChanged = previousRingWidth !== width || previousRingHeight !== height;
+    const shouldResetRing = !preserveRing || ringSizeChanged || !imageData;
+    if (shouldResetRing) {
+        ringHeadY = 0;
+        pendingRowsToPresent = 0;
+        needsPresent = false;
+    }
+
+    // Initialize imageData from the ring context, so headless mode can render too.
+    if (!imageData || imageData.width !== width) {
+        imageData = ringCtx?.createImageData(width, 1) || null;
+    }
 
     // Other setup
-    colorMap = config.colorMap;
-    dbRange = config.dbRange;
-    fftSize = config.fftSize;
-    showRotatorDottedLines = config.showRotatorDottedLines;
-    timezone = config.timezone || timezone;
+    if (config.colorMap) {
+        colorMap = config.colorMap;
+    }
+    if (config.dbRange) {
+        dbRange = config.dbRange;
+    }
+    if (config.fftSize) {
+        fftSize = config.fftSize;
+    }
+    if (config.showRotatorDottedLines !== undefined) {
+        showRotatorDottedLines = config.showRotatorDottedLines;
+    }
+    if (config.timezone !== undefined) {
+        timezone = config.timezone || timezone;
+    }
 
     // Update theme if provided
     if (config.theme) {
@@ -599,12 +649,14 @@ function setupCanvas(config) {
     fftHistory = [];
     smoothedFftData = new Array(fftSize).fill(-120);
 
-    // Clear the canvas
-    waterfallCtx.fillStyle = theme.palette.background.default;
-    waterfallCtx.fillRect(0, 0, waterfallCanvas.width, waterfallCanvas.height);
+    // Clear visible canvas when attached.
+    if (waterfallCtx && waterfallCanvas) {
+        waterfallCtx.fillStyle = theme.palette.background.default;
+        waterfallCtx.fillRect(0, 0, waterfallCanvas.width, waterfallCanvas.height);
+    }
 
-    // Clear the ring canvas too
-    if (ringCtx) {
+    // Clear the ring canvas when resetting.
+    if (ringCtx && shouldResetRing) {
         ringCtx.fillStyle = theme.palette.background.default;
         ringCtx.fillRect(0, 0, ringCanvas.width, ringCanvas.height);
     }
@@ -672,16 +724,21 @@ function presentTick() {
 }
 
 function ingestWaterfallRow(frame) {
-    if (!waterfallCanvas || !waterfallCtx) return;
+    if (!ringCanvas || !ringCtx || !imageData) return;
+    if (!frame || frame.length === 0) return;
 
     // Move head UPWARD in ring space. Decrement BEFORE writing so this row
     // becomes the newest row at the top of the composed output.
-    const h = waterfallCanvas.height;
+    const h = ringCanvas.height;
     ringHeadY = (ringHeadY - 1 + h) % h;
 
     // Render the new row in the ring buffer and mark presentation as needed.
     renderFFTRowIntoRing(frame, ringHeadY);
-    pendingRowsToPresent++;
+    if (waterfallCanvas && waterfallCtx) {
+        pendingRowsToPresent = Math.min(pendingRowsToPresent + 1, ringCanvas.height);
+    } else {
+        pendingRowsToPresent = 0;
+    }
     needsPresent = true;
 }
 
@@ -736,7 +793,8 @@ function presentWaterfall() {
 
 // Renders a single FFT row into the ring buffer at the specified y index
 function renderFFTRowIntoRing(fftData, y) {
-    if (!imageData) return;
+    if (!imageData || !ringCanvas || !ringCtx) return;
+    if (!fftData || fftData.length === 0) return;
 
     const data = imageData.data;
     const [min, max] = dbRange;
@@ -744,7 +802,7 @@ function renderFFTRowIntoRing(fftData, y) {
     const offsetMin = min + DB_RANGE_OFFSET;
     const offsetMax = max + DB_RANGE_OFFSET;
     const range = offsetMax - offsetMin;
-    const canvasWidth = waterfallCanvas.width;
+    const canvasWidth = ringCanvas.width;
 
     // Note: No need to clear the image data here as we overwrite every pixel below
 
@@ -805,6 +863,10 @@ function renderFFTRowIntoRing(fftData, y) {
 
 // Update FPS setting
 function updateFPS(fps) {
+    if (!Number.isFinite(fps) || fps <= 0) {
+        return;
+    }
+
     if (fps !== targetFPS) {
         targetFPS = fps;
 

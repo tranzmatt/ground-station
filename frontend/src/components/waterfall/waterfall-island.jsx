@@ -77,7 +77,6 @@ import {
     setVfoInactive,
     setVfoActive,
 } from './vfo-marker/vfo-slice.jsx';
-import { toast } from "../../utils/toast-with-timestamp.jsx";
 import { useSocket } from "../common/socket.jsx";
 import {frequencyBands} from "./bandplans.jsx";
 import WaterfallStatusBar from "./waterfall-statusbar.jsx";
@@ -93,7 +92,6 @@ import {
     generateSnapshotName,
     toggleFullscreen as toggleFullscreenUtil,
     setupFullscreenListeners,
-    initializeWorkerWithCanvases,
     setupCanvasCaptureListener,
     paintLeftMarginFiller
 } from './waterfall-utils.jsx';
@@ -102,22 +100,7 @@ import { getRotatorEventDisplay } from '../target/rotator-constants.js';
 import { createDomTileWaterfallRenderer } from './dom-tile-waterfall-renderer.js';
 import { drawBandscope as drawBandscopeModule } from './worker-modules/rendering.js';
 import { updateSmoothedFftData } from './worker-modules/smoothing.js';
-
-// Make a new worker
-export const createExternalWorker = () => {
-
-    try {
-        console.info("Creating external worker for waterfall")
-        return new Worker(
-            new URL('./waterfall-worker.js', import.meta.url),
-            { type: 'module' }
-        );
-    }
-    catch (error) {
-        toast.error(`Failed to create waterfall worker: ${error.message}`);
-    }
-};
-
+import { useWaterfallEngine } from './waterfall-engine-provider.jsx';
 
 const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     playbackElapsedSecondsRef,
@@ -135,7 +118,6 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     const dBAxisScopeCanvasRef = useRef(null);
     const waterFallLeftMarginCanvasRef = useRef(null);
     const waterFallLeftMarginFillerRef = useRef(null);
-    const workerRef = useRef(null);
     const domTileRendererRef = useRef(null);
     const latestDomFftRef = useRef(null);
     const bandscopeTimerRef = useRef(null);
@@ -169,6 +151,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     const mainWaterFallContainer = useRef(null);
     const [showSnapshotOverlay, setShowSnapshotOverlay] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const { workerRef, attachCanvases, detachCanvases, subscribeToWorkerMessages } = useWaterfallEngine();
     const {
         colorMap,
         waterfallRendererMode,
@@ -580,72 +563,137 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
         });
     }, [waterfallRendererMode, colorMap, dbRange, theme.palette.background.default]);
 
-    useEffect(() => {
-        if (waterfallRendererMode === 'worker' && waterFallCanvasRef.current && !canvasTransferredRef.current) {
-            // Worker message handler
-            const handleWorkerMessage = (event) => {
-                const { type, data } = event.data;
+    const handleWorkerMessage = useCallback((event) => {
+        const { type, data } = event.data;
 
-                if (type === 'metrics') {
-                    eventMetrics.current = data;
-                } else if (type === 'status') {
-                    // Optional: handle status updates from the worker
-                } else if (type === 'autoScaleResult') {
-                    const { dbRange, stats } = data;
-                    console.log('New dB range:', dbRange);
-                    console.log('Analysis stats:', stats);
-                    dispatch(setDbRange(dbRange));
-                } else if (type === 'waterfallCaptured') {
-                    // Convert blob to data URL in main thread
-                    const blob = data.blob;
-                    const reader = new FileReader();
-                    reader.onloadend = function() {
-                        window.waterfallCanvasDataURL = reader.result;
-                    };
-                    reader.onerror = function(error) {
-                        console.error('FileReader error:', error);
-                        window.waterfallCanvasDataURL = null;
-                    };
-                    reader.readAsDataURL(blob);
-                } else if (type === 'waterfallCaptureFailed') {
-                    console.error('Waterfall capture failed:', data?.error);
-                    window.waterfallCanvasDataURL = null;
-                }
+        if (type === 'metrics') {
+            eventMetrics.current = data;
+        } else if (type === 'status') {
+            // Optional: handle status updates from the worker
+        } else if (type === 'autoScaleResult') {
+            const { dbRange, stats } = data;
+            console.log('New dB range:', dbRange);
+            console.log('Analysis stats:', stats);
+            dispatch(setDbRange(dbRange));
+        } else if (type === 'waterfallCaptured') {
+            // Convert blob to data URL in main thread
+            const blob = data.blob;
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                window.waterfallCanvasDataURL = reader.result;
             };
+            reader.onerror = function(error) {
+                console.error('FileReader error:', error);
+                window.waterfallCanvasDataURL = null;
+            };
+            reader.readAsDataURL(blob);
+        } else if (type === 'waterfallCaptureFailed') {
+            console.error('Waterfall capture failed:', data?.error);
+            window.waterfallCanvasDataURL = null;
+        }
+    }, [dispatch]);
 
-            // Initialize worker with canvases
-            initializeWorkerWithCanvases({
-                waterFallCanvasRef,
-                bandscopeCanvasRef,
-                dBAxisScopeCanvasRef,
-                waterFallLeftMarginCanvasRef,
-                waterFallCanvasWidth,
-                waterFallCanvasHeight,
-                bandscopeTopPadding,
+    useEffect(() => {
+        if (waterfallRendererMode !== 'worker') {
+            return;
+        }
+        return subscribeToWorkerMessages(handleWorkerMessage);
+    }, [waterfallRendererMode, subscribeToWorkerMessages, handleWorkerMessage]);
+
+    useEffect(() => {
+        if (waterfallRendererMode !== 'worker' || !waterFallCanvasRef.current || canvasTransferredRef.current) {
+            return;
+        }
+
+        const attached = attachCanvases({
+            waterFallCanvasRef,
+            bandscopeCanvasRef,
+            dBAxisScopeCanvasRef,
+            waterFallLeftMarginCanvasRef,
+            config: {
+                width: waterFallCanvasWidth,
+                height: waterFallCanvasHeight,
                 colorMap,
                 dbRange,
                 fftSize,
                 showRotatorDottedLines,
                 timezone,
-                theme,
-                workerRef,
-                canvasTransferredRef,
-                createWorker: createExternalWorker,
-                onMessage: handleWorkerMessage
-            });
+                theme: {
+                    palette: {
+                        background: {
+                            default: theme.palette.background.default,
+                            paper: theme.palette.background.paper,
+                            elevated: theme.palette.background.elevated,
+                        },
+                        border: {
+                            main: theme.palette.border.main,
+                            light: theme.palette.border.light,
+                            dark: theme.palette.border.dark,
+                        },
+                        overlay: {
+                            light: theme.palette.overlay.light,
+                            medium: theme.palette.overlay.medium,
+                            dark: theme.palette.overlay.dark,
+                        },
+                        text: {
+                            primary: theme.palette.text.primary,
+                            secondary: theme.palette.text.secondary,
+                        }
+                    }
+                }
+            },
+        });
 
-            if (workerRef.current) {
-                workerRef.current.postMessage({
-                    cmd: 'setAutoScalePreset',
-                    preset: autoScalePreset,
-                });
-            }
+        if (!attached) {
+            return;
         }
 
+        canvasTransferredRef.current = true;
+
+        if (workerRef.current) {
+            workerRef.current.postMessage({
+                cmd: 'setAutoScalePreset',
+                preset: autoScalePreset,
+            });
+        }
+    }, [
+        waterfallRendererMode,
+        waterFallCanvasWidth,
+        waterFallCanvasHeight,
+        colorMap,
+        dbRange,
+        fftSize,
+        showRotatorDottedLines,
+        timezone,
+        theme.palette.background,
+        theme.palette.border,
+        theme.palette.overlay,
+        theme.palette.text,
+        autoScalePreset,
+        attachCanvases,
+        workerRef,
+    ]);
+
+    useEffect(() => {
+        if (waterfallRendererMode === 'worker') {
+            return;
+        }
+        if (!canvasTransferredRef.current) {
+            return;
+        }
+        detachCanvases();
+        canvasTransferredRef.current = false;
+    }, [waterfallRendererMode, detachCanvases]);
+
+    useEffect(() => {
         return () => {
-            // Cleanup handled elsewhere to avoid StrictMode issues
+            if (!canvasTransferredRef.current) {
+                return;
+            }
+            detachCanvases();
+            canvasTransferredRef.current = false;
         };
-    }, [waterfallRendererMode, waterFallCanvasWidth, waterFallCanvasHeight, colorMap, dbRange, fftSize, showRotatorDottedLines, theme, dispatch, autoScalePreset]);
+    }, [detachCanvases]);
 
     // Add event listener for fullscreen change
     useEffect(() => {
@@ -793,18 +841,6 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
             preset: autoScalePreset,
         });
     }, [waterfallRendererMode, autoScalePreset]);
-
-    // Update the worker when FPS changes
-    useEffect(() => {
-        targetFPSRef.current = targetFPS;
-
-        if (waterfallRendererMode === 'worker' && workerRef.current && isStreaming) {
-            workerRef.current.postMessage({
-                cmd: 'updateFPS',
-                data: {fps: targetFPS}
-            });
-        }
-    }, [waterfallRendererMode, targetFPS, isStreaming]);
 
     // Call this periodically, for example:
     useEffect(() => {
