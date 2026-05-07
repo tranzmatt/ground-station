@@ -425,11 +425,21 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
         dispatch(setTrackerId(trackerId));
         dispatch(setRotator({ value: nextRotatorId, trackerId }));
 
+        // Always overwrite target identity fields when retargeting to a satellite slot.
+        const normalizedTargetName = String(satelliteName || noradId || '').trim();
+        const satelliteTargetPatch = {
+            target_type: 'satellite',
+            target_name: normalizedTargetName || String(noradId || '').trim(),
+            command: null,
+            body_id: null,
+        };
+
         const newTrackingState = isCreateNewSlot
             ? {
                 tracker_id: trackerId,
                 norad_id: noradId,
                 group_id: nextGroupId,
+                ...satelliteTargetPatch,
                 rig_id: nextRigId,
                 rotator_id: nextRotatorId,
                 transmitter_id: 'none',
@@ -444,6 +454,7 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
                 tracker_id: trackerId,
                 norad_id: noradId,
                 group_id: nextGroupId,
+                ...satelliteTargetPatch,
                 rig_id: nextRigId,
                 rotator_id: nextRotatorId,
                 transmitter_id: nextTransmitterId,
