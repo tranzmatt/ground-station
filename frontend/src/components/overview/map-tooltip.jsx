@@ -60,7 +60,7 @@ const SatelliteMarker = ({
     const map = useMap();
     const markerRef = useRef(null);
     const isSelected = selectedSatelliteId === satellite.norad_id;
-    const tooltipAnchorDistance = isTracking ? 24 : (isVisible ? 20 : 16);
+    const tooltipAnchorDistance = isTracking ? 15 : (isSelected ? 9 : 12);
 
     // Choose which tooltip component to use
     const TooltipComponent = isTracking ? TrackedSatelliteTooltip : ThemedLeafletTooltip;

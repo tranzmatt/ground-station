@@ -143,7 +143,7 @@ const TargetSatelliteMarker = React.memo(function TargetSatelliteMarker({
         map,
         markerRef,
         position,
-        anchorDistance: 24,
+        anchorDistance: 15,
         edgePadding: 10,
     });
 
