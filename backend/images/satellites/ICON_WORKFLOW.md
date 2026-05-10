@@ -13,7 +13,7 @@ Process all provided entries in one batch unless the user explicitly asks otherw
 1. Download the source image from the provided URL.
 2. Create a clean transparent icon from the source.
 3. Save/update these files:
-   - `backend/images/satellites/{NORAD}.png` (transparent master/fallback)
+   - `backend/images/satellites/full/{NORAD}.png` (transparent master/fallback)
    - `backend/images/satellites/64/{NORAD}.png`
    - `backend/images/satellites/128/{NORAD}.png`
    - `backend/images/satellites/256/{NORAD}.png`

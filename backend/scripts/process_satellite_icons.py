@@ -118,6 +118,40 @@ def _background_mask_from_border(rgb: np.ndarray) -> np.ndarray:
     return background
 
 
+def _background_mask_from_side_rows(rgb: np.ndarray) -> np.ndarray:
+    """Estimate background from per-row side-strip colors (good for studio photos)."""
+    h, w, _ = rgb.shape
+    strip_w = max(6, min(48, w // 50))
+
+    side_pixels = np.concatenate([rgb[:, :strip_w, :], rgb[:, w - strip_w :, :]], axis=1).astype(
+        np.float32
+    )
+    row_background = np.median(side_pixels, axis=1)
+
+    # Smooth row model to avoid hard seams from local side-strip noise.
+    smooth_window = max(11, (h // 32) | 1)  # keep odd
+    pad = smooth_window // 2
+    padded = np.pad(row_background, ((pad, pad), (0, 0)), mode="edge")
+    smoothed = np.zeros_like(row_background)
+    for y in range(h):
+        smoothed[y] = np.mean(padded[y : y + smooth_window], axis=0)
+    row_background = smoothed
+
+    row_dist = np.linalg.norm(rgb.astype(np.float32) - row_background[:, None, :], axis=2)
+    border_dist = np.concatenate(
+        [
+            row_dist[:, :strip_w].reshape(-1),
+            row_dist[:, w - strip_w :].reshape(-1),
+            row_dist[:3, :].reshape(-1),
+            row_dist[h - 3 :, :].reshape(-1),
+        ]
+    )
+    p95 = float(np.percentile(border_dist, 95))
+    p99 = float(np.percentile(border_dist, 99))
+    threshold = min(128.0, max(20.0, p99 * 1.5 + 6.0, p95 * 1.8 + 4.0))
+    return row_dist <= threshold
+
+
 def _label_components(mask: np.ndarray) -> tuple[np.ndarray, list[Component]]:
     """Label connected components in a boolean foreground mask."""
     h, w = mask.shape
@@ -249,9 +283,62 @@ def _center_fit_square(icon: Image.Image, size: int, padding_ratio: float) -> Im
     return canvas
 
 
+def _mask_touches_border(mask: np.ndarray) -> bool:
+    h, w = mask.shape
+    return (
+        bool(np.any(mask[0, :]))
+        or bool(np.any(mask[h - 1, :]))
+        or bool(np.any(mask[:, 0]))
+        or bool(np.any(mask[:, w - 1]))
+    )
+
+
+def _mask_bbox(mask: np.ndarray) -> tuple[int, int, int, int] | None:
+    ys, xs = np.where(mask)
+    if xs.size == 0 or ys.size == 0:
+        return None
+    return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+
+
+def _mask_quality(mask: np.ndarray) -> float:
+    bbox = _mask_bbox(mask)
+    if bbox is None:
+        return -1e9
+    h, w = mask.shape
+    x0, y0, x1, y1 = bbox
+    area_ratio = float(np.count_nonzero(mask)) / float(h * w)
+    bbox_w = float(x1 - x0) / float(w)
+    bbox_h = float(y1 - y0) / float(h)
+    touches_border = _mask_touches_border(mask)
+
+    score = 0.0
+    score += 2.5 if not touches_border else -2.0
+    score += 1.5 if 0.01 <= area_ratio <= 0.62 else -1.5
+    score += 1.0 if (bbox_w < 0.98 and bbox_h < 0.98) else -1.0
+    if area_ratio > 0.82:
+        score -= 4.0
+    return score
+
+
+def _extract_selected_mask(
+    background_candidate: np.ndarray, width: int, height: int
+) -> tuple[np.ndarray, np.ndarray, list[Component], set[int]] | None:
+    edge_background = _flood_fill_edge_connected(background_candidate)
+    foreground = ~edge_background
+    label_map, components = _label_components(foreground)
+    selected_labels = _select_satellite_components(components, width, height)
+    if not selected_labels:
+        return None
+    selected_mask = np.isin(label_map, list(selected_labels))
+    if not np.any(selected_mask):
+        return None
+    return selected_mask, label_map, components, selected_labels
+
+
 def process_satellite_image(
     source_path: Path,
     source_dir: Path,
+    output_dir: Path,
     sizes: list[int],
     padding_ratio: float,
     apply_changes: bool,
@@ -262,24 +349,53 @@ def process_satellite_image(
     source_alpha = rgba[:, :, 3]
 
     if np.all(source_alpha == 255):
-        background_candidate = _background_mask_from_border(rgba[:, :, :3])
-        edge_background = _flood_fill_edge_connected(background_candidate)
-        foreground = ~edge_background
+        primary_result = _extract_selected_mask(
+            _background_mask_from_border(rgba[:, :, :3]), source_w, source_h
+        )
+        if primary_result is None:
+            raise RuntimeError(f"{norad}: no foreground components selected")
+        selected_mask, label_map, components, selected_labels = primary_result
         note = "opaque source -> border-derived background extraction"
-        label_map, components = _label_components(foreground)
-        selected_labels = _select_satellite_components(components, source_w, source_h)
+
+        # Retry with row-wise side-strip modeling when the primary mask is likely over-segmented.
+        primary_bbox = _mask_bbox(selected_mask)
+        primary_area_ratio = float(np.count_nonzero(selected_mask)) / float(source_w * source_h)
+        if primary_bbox is not None:
+            x0, y0, x1, y1 = primary_bbox
+            bbox_w = float(x1 - x0) / float(source_w)
+            bbox_h = float(y1 - y0) / float(source_h)
+            suspicious_primary = _mask_touches_border(selected_mask) and (
+                primary_area_ratio > 0.42 or bbox_w > 0.98 or bbox_h > 0.98
+            )
+        else:
+            suspicious_primary = True
+
+        if suspicious_primary:
+            side_result = _extract_selected_mask(
+                _background_mask_from_side_rows(rgba[:, :, :3]), source_w, source_h
+            )
+            if side_result is not None:
+                (
+                    side_mask,
+                    side_label_map,
+                    side_components,
+                    side_selected_labels,
+                ) = side_result
+                if _mask_quality(side_mask) > _mask_quality(selected_mask) + 0.35:
+                    selected_mask = side_mask
+                    label_map = side_label_map
+                    components = side_components
+                    selected_labels = side_selected_labels
+                    note = "opaque source -> side-row background extraction"
     else:
-        foreground = source_alpha > 0
         note = "alpha source -> reuse existing transparency"
-        label_map, components = _label_components(foreground)
+        label_map, components = _label_components(source_alpha > 0)
         # For already-transparent masters, keep all visible alpha regions.
         # This avoids dropping detached solar panels/antennas from prior cutouts.
         selected_labels = {component.label for component in components}
-
-    if not selected_labels:
-        raise RuntimeError(f"{norad}: no foreground components selected")
-
-    selected_mask = np.isin(label_map, list(selected_labels))
+        if not selected_labels:
+            raise RuntimeError(f"{norad}: no foreground components selected")
+        selected_mask = np.isin(label_map, list(selected_labels))
     ys, xs = np.where(selected_mask)
     if xs.size == 0 or ys.size == 0:
         raise RuntimeError(f"{norad}: selected mask is empty")
@@ -297,7 +413,7 @@ def process_satellite_image(
 
     master_image = Image.fromarray(trimmed, mode="RGBA")
     master_path = source_dir / f"{norad}.png"
-    preset_paths = tuple(source_dir / str(size) / f"{norad}.png" for size in sizes)
+    preset_paths = tuple(output_dir / str(size) / f"{norad}.png" for size in sizes)
 
     if apply_changes:
         master_image.save(master_path)
@@ -324,7 +440,8 @@ def process_satellite_image(
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    default_source_dir = repo_root / "images" / "satellites"
+    default_source_dir = repo_root / "images" / "satellites" / "full"
+    default_output_dir = repo_root / "images" / "satellites"
 
     parser = argparse.ArgumentParser(
         description=(
@@ -336,7 +453,19 @@ def main() -> None:
         "--source-dir",
         type=Path,
         default=default_source_dir,
-        help="Directory containing NORAD-named source images (default: backend/images/satellites).",
+        help=(
+            "Directory containing NORAD-named source images "
+            "(default: backend/images/satellites/full)."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=default_output_dir,
+        help=(
+            "Directory where the normalized masters and 64/128/256 presets are written "
+            "(default: backend/images/satellites)."
+        ),
     )
     parser.add_argument(
         "--norad",
@@ -373,6 +502,12 @@ def main() -> None:
     source_dir: Path = args.source_dir.resolve()
     if not source_dir.exists():
         raise SystemExit(f"source dir does not exist: {source_dir}")
+    output_dir: Path = args.output_dir.resolve()
+    if not output_dir.exists():
+        if args.apply:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            raise SystemExit(f"output dir does not exist: {output_dir}")
     if any(size < 16 for size in args.sizes):
         raise SystemExit("all --sizes must be >= 16")
     if not (0.0 <= args.padding_ratio <= 0.25):
@@ -391,7 +526,7 @@ def main() -> None:
         raise SystemExit("no matching NORAD source images found")
 
     mode = "APPLY" if args.apply else "DRY-RUN"
-    print(f"[{mode}] processing {len(candidates)} images from {source_dir}")
+    print(f"[{mode}] processing {len(candidates)} images from {source_dir} -> {output_dir}")
 
     successes: list[ProcessResult] = []
     failures: list[tuple[str, str]] = []
@@ -401,6 +536,7 @@ def main() -> None:
             result = process_satellite_image(
                 source_path=source,
                 source_dir=source_dir,
+                output_dir=output_dir,
                 sizes=args.sizes,
                 padding_ratio=args.padding_ratio,
                 apply_changes=args.apply,

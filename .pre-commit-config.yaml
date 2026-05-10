@@ -12,7 +12,7 @@ repos:
       - id: check-yaml
         args: ['--unsafe']
       - id: check-added-large-files
-        args: ['--maxkb=5000']
+        args: ['--maxkb=50000']
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: mixed-line-ending

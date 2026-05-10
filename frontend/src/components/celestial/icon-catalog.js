@@ -167,5 +167,5 @@ export const resolveSatelliteIconPath = (satelliteId, size) => {
 export const resolveSatelliteFallbackPath = (satelliteId) => {
     const normalized = normalizeSatelliteId(satelliteId);
     if (!normalized) return '';
-    return `${SATELLITE_BASE_URL}/${normalized}.png`;
+    return `${SATELLITE_BASE_URL}/full/${normalized}.png`;
 };

@@ -480,7 +480,7 @@ const SatelliteInfoContent = ({
                     <Box sx={{textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1}}>
                         {!imageError ? (
                             <img
-                                src={`/satimages/${satelliteData['norad_id']}.png`}
+                                src={`/satimages/full/${satelliteData['norad_id']}.png`}
                                 alt={`Satellite ${satelliteData['norad_id']}`}
                                 onError={handleImageError}
                                 style={{

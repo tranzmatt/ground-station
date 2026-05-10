@@ -65,7 +65,7 @@ const SatelliteIcon = ({
                 loading="lazy"
                 onLoad={() => setLoaded(true)}
                 onError={() => {
-                    // Try normalized icon set first, then fallback to /satimages/{norad}.png.
+                    // Try normalized icon set first, then fallback to /satimages/full/{norad}.png.
                     if (!usingFallback && fallbackPath && fallbackPath !== primaryPath) {
                         setLoaded(false);
                         setUsingFallback(true);
