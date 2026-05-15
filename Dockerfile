@@ -56,10 +56,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-mako \
     python3-requests \
     libfftw3-dev \
+    libabsl-dev \
+    libarmadillo-dev \
+    libblas-dev \
+    libgflags-dev \
+    libgoogle-glog-dev \
+    libgtest-dev \
+    liblapack-dev \
+    libmatio-dev \
+    libpcap-dev \
+    libprotobuf-dev \
+    libpugixml-dev \
     libsqlite3-dev \
     libiio-dev \
     libad9361-dev \
+    libssl-dev \
     libusb-1.0-0-dev \
+    protobuf-compiler \
     pkg-config \
     wget \
     && rm -rf /var/lib/apt/lists/*
@@ -375,6 +388,22 @@ RUN git clone --depth=1 --branch=maint-3.10 --recursive https://github.com/gnura
 # Copy GNU Radio Python bindings to virtual environment
 RUN cp -r /usr/local/lib/python3.12/site-packages/gnuradio* /app/venv/lib/python3.12/site-packages/ || true
 RUN cp -r /usr/local/lib/python3.12/site-packages/pmt* /app/venv/lib/python3.12/site-packages/ || true
+
+# Compile GNSS-SDR CLI using the upstream build flow from gnss-sdr.org docs.
+# We pin to an explicit commit so image builds remain reproducible.
+WORKDIR /src
+ARG GNSS_SDR_COMMIT=0f4dba13865bbed38a586678b1af75479f3c2411
+RUN git clone --depth=1 https://github.com/gnss-sdr/gnss-sdr.git && \
+    cd gnss-sdr && \
+    git fetch --depth=1 origin ${GNSS_SDR_COMMIT} && \
+    git checkout ${GNSS_SDR_COMMIT} && \
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="/usr/local;/opt/volk" && \
+    cmake --build build --parallel $(nproc) && \
+    sudo cmake --install build && \
+    sudo ldconfig
+
+# Fail early during image build if the CLI was not installed.
+RUN command -v gnss-sdr >/dev/null
 
 # Compile gr-lora_sdr
 WORKDIR /src

@@ -63,6 +63,17 @@ class DecoderConfig:
         None  # Target sample rate for pipeline (e.g., 48000 for APT)
     )
 
+    # GNSS-SDR specific parameters
+    gnss_sample_rate: Optional[int] = None  # Input sample rate expected by GNSS-SDR
+    gnss_total_channels: Optional[int] = None  # Total acquisition/tracking channels
+    gnss_output_rate_ms: Optional[int] = None  # PVT output interval in milliseconds
+    gnss_doppler_max: Optional[int] = None  # Max Doppler search window in Hz
+    gnss_enable_gps: Optional[bool] = None
+    gnss_enable_galileo: Optional[bool] = None
+    gnss_enable_glonass: Optional[bool] = None
+    gnss_enable_beidou: Optional[bool] = None
+    gnss_enable_qzss: Optional[bool] = None
+
     # Optional metadata
     packet_size: Optional[int] = None  # Expected packet size in bytes
 
@@ -102,6 +113,15 @@ class DecoderConfig:
             and self.fldro == other.fldro
             and self.pipeline == other.pipeline
             and self.target_sample_rate == other.target_sample_rate
+            and self.gnss_sample_rate == other.gnss_sample_rate
+            and self.gnss_total_channels == other.gnss_total_channels
+            and self.gnss_output_rate_ms == other.gnss_output_rate_ms
+            and self.gnss_doppler_max == other.gnss_doppler_max
+            and self.gnss_enable_gps == other.gnss_enable_gps
+            and self.gnss_enable_galileo == other.gnss_enable_galileo
+            and self.gnss_enable_glonass == other.gnss_enable_glonass
+            and self.gnss_enable_beidou == other.gnss_enable_beidou
+            and self.gnss_enable_qzss == other.gnss_enable_qzss
             and (self.framing_params or {}) == (other.framing_params or {})
         )
 
@@ -129,6 +149,15 @@ class DecoderConfig:
                 self.fldro,
                 self.pipeline,
                 self.target_sample_rate,
+                self.gnss_sample_rate,
+                self.gnss_total_channels,
+                self.gnss_output_rate_ms,
+                self.gnss_doppler_max,
+                self.gnss_enable_gps,
+                self.gnss_enable_galileo,
+                self.gnss_enable_glonass,
+                self.gnss_enable_beidou,
+                self.gnss_enable_qzss,
                 framing_params_tuple,
             )
         )
@@ -150,6 +179,15 @@ class DecoderConfig:
             "fldro": self.fldro,
             "pipeline": self.pipeline,
             "target_sample_rate": self.target_sample_rate,
+            "gnss_sample_rate": self.gnss_sample_rate,
+            "gnss_total_channels": self.gnss_total_channels,
+            "gnss_output_rate_ms": self.gnss_output_rate_ms,
+            "gnss_doppler_max": self.gnss_doppler_max,
+            "gnss_enable_gps": self.gnss_enable_gps,
+            "gnss_enable_galileo": self.gnss_enable_galileo,
+            "gnss_enable_glonass": self.gnss_enable_glonass,
+            "gnss_enable_beidou": self.gnss_enable_beidou,
+            "gnss_enable_qzss": self.gnss_enable_qzss,
             "packet_size": self.packet_size,
             "framing_params": self.framing_params,
             "satellite": self.satellite,

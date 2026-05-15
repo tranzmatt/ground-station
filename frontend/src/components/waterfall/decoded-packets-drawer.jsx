@@ -76,7 +76,10 @@ const DEFAULT_DRAWER_ROW_LIMIT = 100;
 
 const mapOutputsToRows = (outputs, rowLimit = DEFAULT_DRAWER_ROW_LIMIT) => {
     return outputs
-        .filter(output => output.type === 'decoder-output')
+        .filter(output =>
+            output.type === 'decoder-output' &&
+            String(output.decoder_type || '').toLowerCase() !== 'gnss'
+        )
         .slice(-rowLimit)
         .map(output => {
             const isSstv = output.decoder_type === 'sstv';
@@ -125,7 +128,7 @@ const mapOutputsToRows = (outputs, rowLimit = DEFAULT_DRAWER_ROW_LIMIT) => {
         .reverse();
 };
 
-const DecodedPacketsDrawer = () => {
+const DecodedPacketsDrawer = ({ embedded = false }) => {
     const theme = useTheme();
     const dispatch = useDispatch();
     const { socket } = useSocket();
@@ -156,7 +159,8 @@ const DecodedPacketsDrawer = () => {
     const minHeight = 150;
     const maxHeight = 600;
 
-    const liveMode = isStreaming && packetsDrawerOpen;
+    const effectiveDrawerOpen = embedded ? true : packetsDrawerOpen;
+    const liveMode = isStreaming && effectiveDrawerOpen;
     const rowLimit = liveMode ? LIVE_DRAWER_ROW_LIMIT : DEFAULT_DRAWER_ROW_LIMIT;
     const latestRows = useMemo(() => mapOutputsToRows(outputs, rowLimit), [outputs, rowLimit]);
     const latestRowsRef = useRef(latestRows);
@@ -611,6 +615,9 @@ const DecodedPacketsDrawer = () => {
     const displayedColumns = liveMode ? liveColumns : columns;
 
     const handleToggle = () => {
+        if (embedded) {
+            return;
+        }
         // Only toggle if user didn't drag
         if (!hasDragged) {
             dispatch(setPacketsDrawerOpen(!packetsDrawerOpen));
@@ -619,6 +626,9 @@ const DecodedPacketsDrawer = () => {
 
     // Mouse/touch down on handle to start dragging
     const handleMouseDown = (e) => {
+        if (embedded) {
+            return;
+        }
         if (packetsDrawerOpen) {
             setIsDragging(true);
             setHasDragged(false); // Reset drag flag
@@ -696,58 +706,60 @@ const DecodedPacketsDrawer = () => {
             sx={{
                 position: 'relative',
                 width: '100%',
-                borderTop: `1px solid ${theme.palette.border.main}`,
+                height: embedded ? '100%' : 'auto',
+                borderTop: embedded ? 'none' : `1px solid ${theme.palette.border.main}`,
                 backgroundColor: theme.palette.background.paper,
-                minHeight: '32px',
+                minHeight: embedded ? 0 : '32px',
             }}
         >
-            {/* Handle */}
-            <Box
-                className="decoded-packets-drawer-handle"
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleMouseDown}
-                onClick={handleToggle}
-                sx={{
-                    height: '32px',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 1,
-                    backgroundColor: theme.palette.background.paper,
-                    borderBottom: packetsDrawerOpen ? `1px solid ${theme.palette.border.main}` : 'none',
-                    cursor: packetsDrawerOpen ? 'ns-resize' : 'pointer',
-                    userSelect: 'none',
-                    transition: 'background-color 0.2s',
-                    '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                    },
-                }}
-            >
-                <DragIndicatorIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} />
-                {packetsDrawerOpen ? (
-                    <KeyboardArrowDownIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
-                ) : (
-                    <KeyboardArrowUpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
-                )}
-                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.5px' }}>
-                    PACKETS
-                </Typography>
-                {packetsDrawerOpen ? (
-                    <KeyboardArrowDownIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
-                ) : (
-                    <KeyboardArrowUpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
-                )}
-                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', color: 'text.disabled', ml: 0.5 }}>
-                    ({rows.length})
-                </Typography>
-            </Box>
+            {!embedded && (
+                <Box
+                    className="decoded-packets-drawer-handle"
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleMouseDown}
+                    onClick={handleToggle}
+                    sx={{
+                        height: '32px',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 1,
+                        backgroundColor: theme.palette.background.paper,
+                        borderBottom: packetsDrawerOpen ? `1px solid ${theme.palette.border.main}` : 'none',
+                        cursor: packetsDrawerOpen ? 'ns-resize' : 'pointer',
+                        userSelect: 'none',
+                        transition: 'background-color 0.2s',
+                        '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                        },
+                    }}
+                >
+                    <DragIndicatorIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} />
+                    {packetsDrawerOpen ? (
+                        <KeyboardArrowDownIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
+                    ) : (
+                        <KeyboardArrowUpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
+                    )}
+                    <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                        PACKETS
+                    </Typography>
+                    {packetsDrawerOpen ? (
+                        <KeyboardArrowDownIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
+                    ) : (
+                        <KeyboardArrowUpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
+                    )}
+                    <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', color: 'text.disabled', ml: 0.5 }}>
+                        ({rows.length})
+                    </Typography>
+                </Box>
+            )}
 
             {/* Drawer content */}
-            {packetsDrawerOpen && (
+            {effectiveDrawerOpen && (
                 <Box
                     sx={{
-                        height: `${packetsDrawerHeight}px`,
+                        height: embedded ? '100%' : `${packetsDrawerHeight}px`,
                         overflow: 'hidden',
                         backgroundColor: theme.palette.background.paper,
                     }}

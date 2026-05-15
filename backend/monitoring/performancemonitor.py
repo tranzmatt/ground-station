@@ -1057,6 +1057,7 @@ class PerformanceMonitor(threading.Thread):
                     "GFSKDecoder",
                     "GMSKDecoder",
                     "SSTVDecoder",
+                    "GNSSSdrDecoder",
                 ]
 
                 if is_iq_decoder:

@@ -296,6 +296,7 @@ export const DataDecoderSelector = ({
                 if (newValue === 'sstv') updates.bandwidth = 3300;
                 else if (newValue === 'apt') updates.bandwidth = 40000;
                 else if (newValue === 'lora') updates.bandwidth = 500000;
+                else if (newValue === 'gnss') updates.bandwidth = 2000000;
                 else if (newValue === 'morse') updates.bandwidth = 2500;
                 else if (newValue === 'afsk') updates.bandwidth = 3300;
                 else if (['gmsk', 'gfsk', 'bpsk'].includes(newValue)) {
@@ -350,7 +351,8 @@ export const DataDecoderSelector = ({
                     { value: 'gmsk', label: t('vfo.decoders_modes.gmsk', 'GMSK') },
                     { value: 'gfsk', label: t('vfo.decoders_modes.gfsk', 'GFSK') },
                     { value: 'bpsk', label: t('vfo.decoders_modes.bpsk', 'BPSK') },
-                    { value: 'afsk', label: t('vfo.decoders_modes.afsk', 'AFSK') }
+                    { value: 'afsk', label: t('vfo.decoders_modes.afsk', 'AFSK') },
+                    { value: 'gnss', label: t('vfo.decoders_modes.gnss', 'GNSS') }
                 ].map(({ value, label }) => {
                     const supported = isDecoderSupported(value);
                     const button = (

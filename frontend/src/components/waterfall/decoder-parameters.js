@@ -401,6 +401,89 @@ export const SSTV_PARAMETERS = {
 };
 
 /**
+ * GNSS-SDR Decoder Parameters
+ * GNSS decoder streams wideband L1 IQ into GNSS-SDR for multi-constellation processing.
+ */
+export const GNSS_PARAMETERS = {
+    gnss_sample_rate: {
+        label: 'Input Sample Rate',
+        description: 'Sample rate fed to GNSS-SDR after optional decimation',
+        type: 'select',
+        default: 4000000,
+        options: [
+            { value: 2000000, label: '2.0 MS/s' },
+            { value: 2500000, label: '2.5 MS/s' },
+            { value: 4000000, label: '4.0 MS/s' },
+            { value: 5000000, label: '5.0 MS/s' }
+        ]
+    },
+    gnss_total_channels: {
+        label: 'Total Channels',
+        description: 'Total acquisition/tracking channels shared across enabled constellations',
+        type: 'select',
+        default: 24,
+        options: [
+            { value: 8, label: '8' },
+            { value: 12, label: '12' },
+            { value: 16, label: '16' },
+            { value: 24, label: '24' },
+            { value: 32, label: '32' },
+            { value: 48, label: '48' }
+        ]
+    },
+    gnss_output_rate_ms: {
+        label: 'PVT Update Rate',
+        description: 'Navigation/PVT output interval',
+        type: 'select',
+        default: 500,
+        options: [
+            { value: 100, label: '100 ms' },
+            { value: 200, label: '200 ms' },
+            { value: 500, label: '500 ms' },
+            { value: 1000, label: '1000 ms' }
+        ]
+    },
+    gnss_doppler_max: {
+        label: 'Max Doppler Search',
+        description: 'Acquisition Doppler search window in Hz',
+        type: 'select',
+        default: 6000,
+        options: [
+            { value: 3000, label: '3 kHz' },
+            { value: 4000, label: '4 kHz' },
+            { value: 6000, label: '6 kHz' },
+            { value: 8000, label: '8 kHz' },
+            { value: 10000, label: '10 kHz' }
+        ]
+    },
+    gnss_enable_gps: {
+        label: 'GPS (L1 C/A)',
+        type: 'switch',
+        default: true
+    },
+    gnss_enable_galileo: {
+        label: 'Galileo (E1B)',
+        type: 'switch',
+        default: true
+    },
+    gnss_enable_glonass: {
+        label: 'GLONASS (L1 C/A)',
+        type: 'switch',
+        default: true
+    },
+    gnss_enable_beidou: {
+        label: 'BeiDou (B1I)',
+        type: 'switch',
+        default: true
+    },
+    gnss_enable_qzss: {
+        label: 'QZSS (L1 C/A)',
+        type: 'switch',
+        default: true
+    }
+};
+
+/**
  * Decoder support flags
  * Use this map to disable unsupported decoders in the UI.
  */
@@ -413,7 +496,8 @@ export const DECODER_SUPPORT = {
     apt: true,
     lora: false,
     morse: false,
-    afsk: false
+    afsk: false,
+    gnss: true
 };
 
 /**
@@ -450,6 +534,7 @@ export const DECODER_PARAMETERS = {
     ...GFSK_PARAMETERS,
     ...BPSK_PARAMETERS,
     ...AFSK_PARAMETERS,
+    ...GNSS_PARAMETERS,
     ...SSTV_PARAMETERS
 };
 
@@ -535,6 +620,20 @@ export function mapParametersToBackend(decoder, parameters) {
             af_carrier: parameters.afsk_af_carrier,
             deviation: parameters.afsk_deviation,
             framing: parameters.afsk_framing
+        };
+    }
+
+    if (decoder === 'gnss') {
+        return {
+            gnss_sample_rate: parameters.gnss_sample_rate ?? 4000000,
+            gnss_total_channels: parameters.gnss_total_channels ?? 24,
+            gnss_output_rate_ms: parameters.gnss_output_rate_ms ?? 500,
+            gnss_doppler_max: parameters.gnss_doppler_max ?? 6000,
+            gnss_enable_gps: parameters.gnss_enable_gps ?? true,
+            gnss_enable_galileo: parameters.gnss_enable_galileo ?? true,
+            gnss_enable_glonass: parameters.gnss_enable_glonass ?? true,
+            gnss_enable_beidou: parameters.gnss_enable_beidou ?? true,
+            gnss_enable_qzss: parameters.gnss_enable_qzss ?? true
         };
     }
 

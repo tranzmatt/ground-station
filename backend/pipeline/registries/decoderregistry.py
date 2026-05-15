@@ -53,6 +53,11 @@ try:
 except Exception:
     SSTVDecoder = None
 
+try:
+    from demodulators.gnsssdrdecoder import GNSSSdrDecoder
+except Exception:
+    GNSSSdrDecoder = None
+
 
 @dataclass
 class DecoderCapabilities:
@@ -191,6 +196,29 @@ class DecoderRegistry:
                 supports_transmitter_config=True,
                 restart_on_params=["baudrate", "differential", "framing", "framing_params"],
                 description="Binary Phase Shift Keying decoder",
+            )
+
+        if GNSSSdrDecoder is not None:
+            self._decoders["gnss"] = DecoderCapabilities(
+                name="gnss",
+                decoder_class=GNSSSdrDecoder,
+                needs_raw_iq=True,  # Works on raw IQ samples
+                required_demodulator=None,  # No demodulator needed
+                demodulator_mode=None,
+                default_bandwidth=2_000_000,  # Typical wide L1 capture window
+                supports_transmitter_config=True,
+                restart_on_params=[
+                    "gnss_sample_rate",
+                    "gnss_total_channels",
+                    "gnss_output_rate_ms",
+                    "gnss_doppler_max",
+                    "gnss_enable_gps",
+                    "gnss_enable_galileo",
+                    "gnss_enable_glonass",
+                    "gnss_enable_beidou",
+                    "gnss_enable_qzss",
+                ],
+                description="GNSS-SDR based multi-constellation L1 decoder",
             )
 
         self._initialized = True

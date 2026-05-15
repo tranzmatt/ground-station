@@ -85,7 +85,6 @@ import WaterfallErrorDialog from "./waterfall-error-dialog.jsx";
 import useWaterfallStream from "./waterfall-stream.jsx";
 import { useTranslation } from 'react-i18next';
 import { useWaterfallSnapshot } from "./waterfall-snapshot.js";
-import DecodedPacketsDrawer from "./decoded-packets-drawer.jsx";
 import WaterfallRightSidebar from "./waterfall-right-sidebar.jsx";
 import { useAudio } from "../dashboard/audio-provider.jsx";
 import {
@@ -1126,7 +1125,7 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                 onClose={() => dispatch(setErrorDialogOpen(false))}
             />
 
-            {/* Bottom container for status bar and drawer */}
+            {/* Bottom status bar */}
             <Box
                 sx={{
                     position: 'absolute',
@@ -1139,7 +1138,6 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                 }}
             >
                 <WaterfallStatusBar isStreaming={isStreaming} eventMetrics={eventMetrics} centerFrequency={centerFrequency} sampleRate={sampleRate} gain={gain} />
-                <DecodedPacketsDrawer />
             </Box>
         </div>
     );

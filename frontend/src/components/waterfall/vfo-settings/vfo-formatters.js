@@ -55,6 +55,19 @@ export const formatDecoderParamsSummary = (vfo) => {
         return `SF${sf} BW${bwKhz}kHz CR4/${cr + 4}`;
     }
 
+    if (decoder === 'gnss') {
+        const sampleRate = params.gnss_sample_rate ?? 4000000;
+        const channels = params.gnss_total_channels ?? 24;
+        const enabled = [];
+        if (params.gnss_enable_gps ?? true) enabled.push('GPS');
+        if (params.gnss_enable_galileo ?? true) enabled.push('GAL');
+        if (params.gnss_enable_glonass ?? true) enabled.push('GLO');
+        if (params.gnss_enable_beidou ?? true) enabled.push('BDS');
+        if (params.gnss_enable_qzss ?? true) enabled.push('QZS');
+        const constellations = enabled.length > 0 ? enabled.join('/') : 'GPS';
+        return `${constellations} ${(sampleRate / 1000000).toFixed(1)}MS/s CH${channels}`;
+    }
+
     if (decoder === 'fsk') {
         const baudrate = params.fsk_baudrate ?? 9600;
         const deviation = params.fsk_deviation ?? 5000;

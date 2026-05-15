@@ -212,6 +212,22 @@ export const DECODERS = {
         bandwidthLabel: (bw) => '',
         lockedBandwidth: true, // bandwidth is determined by LoRa parameters, not user-adjustable
     },
+    gnss: {
+        internalName: 'gnss',
+        displayName: 'GNSS',
+        description: 'GNSS-SDR decoder (wideband raw IQ, no demodulator)',
+        hasStatusDisplay: true,
+        hasProgressDisplay: false,
+        hasTextOutput: false,
+        hasModeDisplay: false,
+        defaultBandwidth: 2000000, // 2 MHz default for initial L1 acquisition window
+        bandwidthType: 'double-sided',
+        showBothEdges: true,
+        allowLeftEdgeDrag: false,
+        allowRightEdgeDrag: false,
+        bandwidthLabel: (bw) => `±${(bw / 2000000).toFixed(2)}MHz`,
+        lockedBandwidth: true, // keep wide marker stable for the GNSS path
+    },
     gmsk: {
         internalName: 'gmsk',
         displayName: 'GMSK',
@@ -691,6 +707,16 @@ export const getDefaultVFOConfig = () => {
             // bpsk_differential: false,
             // bpsk_framing: 'ax25',
 
+            // GNSS-SDR parameters
+            gnss_sample_rate: 4000000,
+            gnss_total_channels: 24,
+            gnss_output_rate_ms: 500,
+            gnss_doppler_max: 6000,
+            gnss_enable_gps: true,
+            gnss_enable_galileo: true,
+            gnss_enable_glonass: true,
+            gnss_enable_beidou: true,
+            gnss_enable_qzss: true,
         }
     };
 };

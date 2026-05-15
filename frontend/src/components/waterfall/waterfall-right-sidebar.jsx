@@ -39,16 +39,12 @@ const WaterfallRightSidebar = ({ workerRef, waterfallControlRef, dimensions }) =
         autoDBRange,
         waterFallScaleX,
         showRightSideWaterFallAccessories,
-        packetsDrawerOpen,
-        packetsDrawerHeight,
     } = useSelector((state) => ({
         dbRange: state.waterfall.dbRange,
         isStreaming: state.waterfall.isStreaming,
         autoDBRange: state.waterfall.autoDBRange,
         waterFallScaleX: state.waterfall.waterFallScaleX,
         showRightSideWaterFallAccessories: state.waterfall.showRightSideWaterFallAccessories,
-        packetsDrawerOpen: state.waterfall.packetsDrawerOpen,
-        packetsDrawerHeight: state.waterfall.packetsDrawerHeight,
     }), shallowEqual);
 
     useEffect(() => {
@@ -62,17 +58,13 @@ const WaterfallRightSidebar = ({ workerRef, waterfallControlRef, dimensions }) =
         return null;
     }
 
-    // Calculate height based on actual bottom container height
-    // The bottom container consists of: status bar (30px) + drawer handle (32px) + drawer content (if open)
+    // Calculate height based on the waterfall bottom status bar.
     const statusBarHeight = 30;
-    const drawerHandleHeight = 32;
-    const drawerContentHeight = packetsDrawerOpen ? packetsDrawerHeight : 0;
-    const bottomContainerHeight = statusBarHeight + drawerHandleHeight + drawerContentHeight;
     const additionalOffset = 72;
 
-    // Total offset is bottom container height + additional offset
+    // Total offset is status bar + additional offset
     // ResizeObserver dimensions already account for fullscreen vs normal mode
-    const totalOffset = bottomContainerHeight + additionalOffset;
+    const totalOffset = statusBarHeight + additionalOffset;
     const rawHeight = (dimensions?.height || 0) - totalOffset;
     const sidebarHeight = Math.max(200, rawHeight);
 

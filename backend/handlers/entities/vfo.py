@@ -80,6 +80,15 @@ async def update_vfo_parameters(
         "af_carrier",
         "pipeline",
         "target_sample_rate",  # Other decoders
+        "gnss_sample_rate",
+        "gnss_total_channels",
+        "gnss_output_rate_ms",
+        "gnss_doppler_max",
+        "gnss_enable_gps",
+        "gnss_enable_galileo",
+        "gnss_enable_glonass",
+        "gnss_enable_beidou",
+        "gnss_enable_qzss",
     ]
 
     for key in decoder_param_keys:

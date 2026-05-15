@@ -35,7 +35,7 @@ async def get_decoder_config(
     Args:
         sio: Socket.IO server instance
         data: Configuration request containing:
-            - decoder_type (required): 'gmsk', 'bpsk', 'afsk', 'gfsk', 'fsk'
+            - decoder_type (required): 'gmsk', 'bpsk', 'afsk', 'gfsk', 'fsk', 'gnss'
             - satellite (optional): {'norad_id': int, 'name': str, ...}
             - transmitter (optional): {'baud': int, 'deviation': int, 'mode': str, 'description': str, ...}
             - overrides (optional): Manual parameter overrides dict
@@ -93,7 +93,7 @@ async def get_decoder_config(
         }
 
     # Validate decoder type
-    valid_types = ["gmsk", "bpsk", "afsk", "gfsk", "fsk"]
+    valid_types = ["gmsk", "bpsk", "afsk", "gfsk", "fsk", "gnss"]
     if decoder_type not in valid_types:
         return {
             "success": False,

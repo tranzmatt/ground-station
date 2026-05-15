@@ -96,6 +96,7 @@ export const canvasDrawingUtils = {
         morseText = null,
         isStreaming = false,
         bpskOutputs = null,
+        gnssDetectedSatCount = null,
         isMuted = false,
         audioStatus = null
     ) => {
@@ -281,6 +282,27 @@ export const canvasDrawingUtils = {
                     }
 
                     const decoderText = `${status.toUpperCase()} | ${loraParams}`;
+
+                    ctx.font = '10px Monospace';
+                    const decoderTextMetrics = ctx.measureText(decoderText);
+                    const decoderLabelWidth = decoderTextMetrics.width + 8;
+                    const decoderLabelHeight = 16;
+
+                    // Draw background
+                    ctx.fillStyle = `${color}${opacity}`;
+                    ctx.beginPath();
+                    ctx.roundRect(centerX - decoderLabelWidth / 2, secondaryLabelTop, decoderLabelWidth, decoderLabelHeight, 2);
+                    ctx.fill();
+
+                    // Draw text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(decoderText, centerX, secondaryLabelTop + 12);
+                } else if (decoderType === 'gnss') {
+                    // GNSS-specific label format: status + currently detected satellites.
+                    const status = decoderInfo.status || 'listening';
+                    const satCount = Number.isFinite(gnssDetectedSatCount) ? gnssDetectedSatCount : 0;
+                    const decoderText = `${status.toUpperCase()} | SAT ${satCount}`;
 
                     ctx.font = '10px Monospace';
                     const decoderTextMetrics = ctx.measureText(decoderText);

@@ -65,7 +65,7 @@ class DecoderConfigService:
         Resolve decoder configuration from multiple sources.
 
         Args:
-            decoder_type: Decoder type ('gmsk', 'bpsk', 'afsk', 'gfsk')
+            decoder_type: Decoder type ('gmsk', 'bpsk', 'afsk', 'gfsk', 'fsk', 'gnss')
             satellite: Satellite dict with 'norad_id', 'name', etc.
             transmitter: Transmitter dict with 'baud', 'deviation', 'mode', 'description', etc.
             overrides: Manual parameter overrides (highest priority)
@@ -88,6 +88,34 @@ class DecoderConfigService:
         satellite = satellite or {}
         transmitter = transmitter or {}
         overrides = overrides or {}
+
+        # GNSS-SDR configuration is intentionally explicit and does not rely on
+        # satellite framing/metadata detection used by packet decoders.
+        if decoder_type == "gnss":
+            mode = transmitter.get("mode", "")
+            description = transmitter.get("description", "")
+
+            config = DecoderConfig(
+                baudrate=0,
+                framing="gnss",
+                config_source="transmitter_metadata" if (mode or description) else "smart_default",
+                gnss_sample_rate=4_000_000,
+                gnss_total_channels=24,
+                gnss_output_rate_ms=500,
+                gnss_doppler_max=6000,
+                gnss_enable_gps=True,
+                gnss_enable_galileo=True,
+                gnss_enable_glonass=True,
+                gnss_enable_beidou=True,
+                gnss_enable_qzss=True,
+            )
+
+            if overrides:
+                config = self._apply_overrides(config, overrides)
+
+            config.satellite = satellite if satellite else None
+            config.transmitter = transmitter if transmitter else None
+            return config
 
         norad_id = satellite.get("norad_id")
         baudrate = self._resolve_baudrate(transmitter, overrides)
@@ -161,6 +189,8 @@ class DecoderConfigService:
         # Digital packet modes
         if "AFSK" in mode_upper:
             return 1200  # APRS default
+        elif "GNSS" in mode_upper:
+            return 0  # GNSS-SDR path does not use baudrate
         elif "BPSK" in mode_upper or "GMSK" in mode_upper or "GFSK" in mode_upper:
             return 9600  # Common for digital modes
 
@@ -355,6 +385,26 @@ class DecoderConfigService:
             config.preamble_len = overrides["preamble_len"]
         if "fldro" in overrides:
             config.fldro = overrides["fldro"]
+
+        # GNSS-specific overrides
+        if "gnss_sample_rate" in overrides:
+            config.gnss_sample_rate = overrides["gnss_sample_rate"]
+        if "gnss_total_channels" in overrides:
+            config.gnss_total_channels = overrides["gnss_total_channels"]
+        if "gnss_output_rate_ms" in overrides:
+            config.gnss_output_rate_ms = overrides["gnss_output_rate_ms"]
+        if "gnss_doppler_max" in overrides:
+            config.gnss_doppler_max = overrides["gnss_doppler_max"]
+        if "gnss_enable_gps" in overrides:
+            config.gnss_enable_gps = overrides["gnss_enable_gps"]
+        if "gnss_enable_galileo" in overrides:
+            config.gnss_enable_galileo = overrides["gnss_enable_galileo"]
+        if "gnss_enable_glonass" in overrides:
+            config.gnss_enable_glonass = overrides["gnss_enable_glonass"]
+        if "gnss_enable_beidou" in overrides:
+            config.gnss_enable_beidou = overrides["gnss_enable_beidou"]
+        if "gnss_enable_qzss" in overrides:
+            config.gnss_enable_qzss = overrides["gnss_enable_qzss"]
 
         # Framing-specific overrides
         if "framing_params" in overrides and isinstance(overrides["framing_params"], dict):
