@@ -801,70 +801,70 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                                     overflowY: 'auto',
                                 }}
                             >
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.7 }}>
                                     <Box
                                         sx={{
+                                            position: 'sticky',
+                                            top: 0,
+                                            zIndex: 3,
                                             display: 'flex',
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            gap: 0.75,
-                                            flexWrap: 'wrap',
+                                            flexDirection: 'column',
+                                            gap: 0.35,
+                                            px: 0.45,
+                                            py: 0.7,
+                                            mb: 0.45,
+                                            backgroundColor: alpha(theme.palette.background.paper, 0.94),
+                                            backdropFilter: 'blur(6px)',
+                                            borderBottom: `1px solid ${theme.palette.border.main}`,
+                                            boxShadow: `0 8px 12px -12px ${alpha(theme.palette.common.black, 0.65)}`,
                                         }}
                                     >
-                                        <Chip
-                                            size="small"
-                                            variant="outlined"
-                                            label={`Detected ${satelliteRows.length}`}
-                                            sx={{ height: 20, fontSize: '0.66rem' }}
-                                        />
-                                        <Chip
-                                            size="small"
-                                            variant="outlined"
-                                            label={`Events ${gnssEventCount}`}
-                                            sx={{ height: 20, fontSize: '0.66rem' }}
-                                        />
-                                        <Chip
-                                            size="small"
-                                            color={satelliteRows.length > 0 ? 'success' : 'default'}
-                                            variant={satelliteRows.length > 0 ? 'filled' : 'outlined'}
-                                            label={satelliteRows.length > 0 ? 'Active' : 'Waiting'}
-                                            sx={{ height: 20, fontSize: '0.66rem', fontWeight: 700 }}
-                                        />
-                                    </Box>
-
-                                    <Divider sx={{ borderColor: theme.palette.border.main }} />
-
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.55 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                                                Receiver Fix
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
+                                            <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 700, fontSize: '0.7rem', lineHeight: 1.1 }}>
+                                                GNSS Summary
                                             </Typography>
-                                            <Chip
-                                                size="small"
-                                                color={receiverFix.status === 'FIX' ? 'success' : receiverFix.status === 'NO FIX' ? 'warning' : 'default'}
-                                                variant={receiverFix.status === 'FIX' ? 'filled' : 'outlined'}
-                                                label={receiverFix.status}
-                                                sx={{ height: 18, fontSize: '0.63rem', fontWeight: 700 }}
-                                            />
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: 700,
+                                                    color: receiverFix.status === 'FIX'
+                                                        ? 'success.main'
+                                                        : receiverFix.status === 'NO FIX'
+                                                            ? 'warning.main'
+                                                            : 'text.secondary',
+                                                    lineHeight: 1.1,
+                                                }}
+                                            >
+                                                {receiverFix.status}
+                                            </Typography>
                                         </Box>
-                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                            {`Last update: ${receiverFix.lastUpdateMs ? formatTimestamp(receiverFix.lastUpdateMs) : '-'}`}
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.66rem', lineHeight: 1.2 }}>
+                                            {`Det ${satelliteRows.length} | Ev ${gnssEventCount} | Sats ${receiverFix.satellites !== null ? receiverFix.satellites : '-'} | Q ${receiverFix.fixQuality !== null ? receiverFix.fixQuality : '-'}`}
                                         </Typography>
-                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                            {`Position: ${receiverFix.latitude !== null && receiverFix.longitude !== null ? `${receiverFix.latitude.toFixed(6)}, ${receiverFix.longitude.toFixed(6)}` : '-'}`}
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.66rem', lineHeight: 1.2, fontFamily: 'monospace' }}>
+                                            {`Pos: ${receiverFix.latitude !== null && receiverFix.longitude !== null ? `${receiverFix.latitude.toFixed(6)}, ${receiverFix.longitude.toFixed(6)}` : '-'} | Alt: ${receiverFix.altitudeM !== null ? `${receiverFix.altitudeM.toFixed(1)} m` : '-'}`}
                                         </Typography>
-                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                            {`Altitude: ${receiverFix.altitudeM !== null ? `${receiverFix.altitudeM.toFixed(1)} m` : '-'}`}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                            {`Fix quality: ${receiverFix.fixQuality !== null ? receiverFix.fixQuality : '-'} | Satellites: ${receiverFix.satellites !== null ? receiverFix.satellites : '-'}`}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: gnssActivity.active ? 'success.main' : gnssActivity.heartbeatAlive ? 'info.main' : 'text.secondary' }}>
-                                            {`Receiver activity: ${gnssActivity.active ? `yes (${gnssActivity.packetsPerSec.toFixed(1)} pkt/s)` : (gnssActivity.heartbeatAlive ? 'alive (no UDP packets)' : 'waiting')}`}
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: 'text.secondary',
+                                                fontSize: '0.66rem',
+                                                lineHeight: 1.2,
+                                            }}
+                                        >
+                                            {`Upd: ${receiverFix.lastUpdateMs ? formatTimestamp(receiverFix.lastUpdateMs) : '-'} | RX: `}
+                                            <Box
+                                                component="span"
+                                                sx={{
+                                                    color: gnssActivity.active ? 'success.main' : gnssActivity.heartbeatAlive ? 'info.main' : 'text.secondary',
+                                                    fontWeight: 700,
+                                                }}
+                                            >
+                                                {gnssActivity.active ? `${gnssActivity.packetsPerSec.toFixed(1)} pkt/s` : (gnssActivity.heartbeatAlive ? 'alive (no UDP packets)' : 'waiting')}
+                                            </Box>
                                         </Typography>
                                     </Box>
-
-                                    <Divider sx={{ borderColor: theme.palette.border.main }} />
 
                                     {!selectedSatellite && (
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
