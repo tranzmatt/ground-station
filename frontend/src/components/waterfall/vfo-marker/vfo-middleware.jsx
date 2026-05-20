@@ -270,18 +270,14 @@ const backendSyncMiddleware = (store) => (next) => (action) => {
                 }
             }));
         } else {
-            // Send complete VFO state when selecting to ensure backend has all parameters
-            const vfoState = state.vfo.vfoMarkers[selectedVFO];
-            const vfoActiveState = state.vfo.vfoActive[selectedVFO];
-            const backendVfoState = filterUIOnlyFields(vfoState);
-            
+            // Selection updates should only carry selection intent.
+            // Sending full VFO payload here can race with activation updates and
+            // accidentally apply stale `active:false` / decoder fields on backend.
             store.dispatch(backendUpdateVFOParameters({
                 socket,
                 vfoNumber: selectedVFO,
                 updates: {
                     vfoNumber: selectedVFO,
-                    ...backendVfoState,
-                    active: vfoActiveState,
                     selected: true
                 }
             }));
