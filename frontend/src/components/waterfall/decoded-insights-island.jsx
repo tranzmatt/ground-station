@@ -247,7 +247,7 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
         });
     }, [timezone, locale]);
 
-    const { satelliteRows, gnssEventCount } = useMemo(() => {
+    const { satelliteRows } = useMemo(() => {
         const gnssOutputs = outputs
             .filter((item) => item?.type === 'decoder-output' && item?.decoder_type === 'gnss')
             .map((item) => ({
@@ -339,7 +339,6 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
 
         return {
             satelliteRows: rows,
-            gnssEventCount: gnssOutputs.length,
         };
     }, [outputs]);
 
@@ -445,23 +444,13 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
             }
         }
 
-        // Keep a short moving window so operators can quickly tell whether GNSS events
-        // are still arriving without opening detailed logs.
-        const recentWindowStartMs = relativeNowMs - 60_000;
-        const recentEventCount = outputs.filter((item) => {
-            if (item?.type !== 'decoder-output' || item?.decoder_type !== 'gnss') return false;
-            const tsMs = Number(item?.timestamp) * 1000;
-            return Number.isFinite(tsMs) && tsMs >= recentWindowStartMs;
-        }).length;
-
         return {
             trackingSatCount,
             acquiredSatCount,
             lostSatCount,
-            recentEventCount,
             latestGnssEventMs,
         };
-    }, [outputs, relativeNowMs, satelliteRows]);
+    }, [satelliteRows]);
 
     useEffect(() => {
         if (!selectedSatelliteId || !satelliteRows.find((row) => row.id === selectedSatelliteId)) {
@@ -875,9 +864,6 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                                         <Box component="span" sx={{ opacity: 0.72 }}>Detected </Box>
                                         <Box component="span" sx={{ fontWeight: 700 }}>{satelliteRows.length}</Box>
                                         <Box component="span" sx={{ opacity: 0.45 }}> | </Box>
-                                        <Box component="span" sx={{ opacity: 0.72 }}>Events </Box>
-                                        <Box component="span" sx={{ fontWeight: 700 }}>{gnssEventCount}</Box>
-                                        <Box component="span" sx={{ opacity: 0.45 }}> | </Box>
                                         <Box component="span" sx={{ opacity: 0.72 }}>Satellites </Box>
                                         <Box component="span" sx={{ fontWeight: 700 }}>{receiverFix.satellites !== null ? receiverFix.satellites : '-'}</Box>
                                         <Box component="span" sx={{ opacity: 0.45 }}> | </Box>
@@ -994,10 +980,6 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                                     <Box component="span">lost: <Box component="span" sx={{ fontWeight: 700 }}>{gnssStatusStats.lostSatCount}</Box></Box>
                                     <Box component="span" sx={{ opacity: 0.55 }}>•</Box>
                                     <Box component="span">loss ev: <Box component="span" sx={{ fontWeight: 700 }}>{gnssActivity.lossOfLockTotal}</Box></Box>
-                                    <Box component="span" sx={{ opacity: 0.55 }}>•</Box>
-                                    <Box component="span">ev: <Box component="span" sx={{ fontWeight: 700 }}>{gnssEventCount}</Box></Box>
-                                    <Box component="span" sx={{ opacity: 0.55 }}>•</Box>
-                                    <Box component="span">1m: <Box component="span" sx={{ fontWeight: 700 }}>{gnssStatusStats.recentEventCount}</Box></Box>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55, marginLeft: 'auto', flex: '0 0 auto' }}>
                                     <Box
