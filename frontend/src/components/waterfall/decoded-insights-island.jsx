@@ -376,6 +376,22 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
             },
         },
         {
+            field: 'prn',
+            headerName: 'PRN',
+            minWidth: 72,
+            flex: 0.45,
+            align: 'center',
+            headerAlign: 'center',
+            renderCell: (params) => {
+                const prn = toFiniteNumber(params.value);
+                return (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                        {prn !== null ? String(Math.trunc(prn)).padStart(2, '0') : '-'}
+                    </Typography>
+                );
+            },
+        },
+        {
             field: 'state',
             headerName: 'State',
             minWidth: 95,
@@ -410,7 +426,7 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
         },
         {
             field: 'acquisitionCount',
-            headerName: 'Acq',
+            headerName: 'Acqs',
             minWidth: 65,
             flex: 0.4,
             align: 'center',
@@ -433,8 +449,22 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
             headerAlign: 'center',
             renderCell: (params) => {
                 const value = toFiniteNumber(params.value);
+                let cn0Color = 'text.disabled';
+                if (value !== null) {
+                    if (value < 25) cn0Color = 'error.main';
+                    else if (value < 35) cn0Color = 'warning.main';
+                    else if (value < 45) cn0Color = 'info.main';
+                    else cn0Color = 'success.main';
+                }
                 return (
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: cn0Color,
+                            fontFamily: 'monospace',
+                            fontWeight: value !== null ? 700 : 500,
+                        }}
+                    >
                         {value !== null ? value.toFixed(1) : '-'}
                     </Typography>
                 );
