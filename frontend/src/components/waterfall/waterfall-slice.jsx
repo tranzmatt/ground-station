@@ -135,17 +135,19 @@ function getGnssFixStatusFromOutput(output) {
     const latitude = toFiniteNumber(normalizedOutput.latitude);
     const longitude = toFiniteNumber(normalizedOutput.longitude);
     const hasCoords = latitude !== null && longitude !== null;
+    const hasPvtField = normalizedOutput.has_pvt !== undefined && normalizedOutput.has_pvt !== null;
+    const hasPvt = hasPvtField ? Boolean(normalizedOutput.has_pvt) : null;
     const hasFixQualityField = normalizedOutput.fix_quality !== undefined
         && normalizedOutput.fix_quality !== null
         && String(normalizedOutput.fix_quality).trim() !== '';
     const hasFixQuality = hasFixQualityField && String(normalizedOutput.fix_quality).trim() !== '0';
     const isNmea = eventType === 'nmea' || eventType === 'nmea_gga' || eventType === 'nmea_rmc';
-    const isFixSignal = hasCoords || hasFixQualityField || isNmea;
+    const isFixSignal = hasCoords || hasFixQualityField || hasPvtField || isNmea;
 
     if (!isFixSignal) {
         return null;
     }
-    return (hasCoords || hasFixQuality) ? 'FIX' : 'NO FIX';
+    return (hasCoords || hasFixQuality || hasPvt) ? 'FIX' : 'NO FIX';
 }
 
 export const startRecording = createAsyncThunk(
