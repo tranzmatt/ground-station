@@ -574,6 +574,7 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
         : displayFixStatus === 'NO FIX'
             ? theme.palette.warning.main
             : theme.palette.text.secondary;
+    const gnssFixStatusYesNo = displayFixStatus === 'FIX' ? 'YES' : 'NO';
 
     const gnssColumns = useMemo(() => ([
         {
@@ -1070,7 +1071,7 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                                             fontSize: '0.66rem',
                                         }}
                                     >
-                                        {`fix: ${displayFixStatus}`}
+                                        {`fix: ${gnssFixStatusYesNo}`}
                                     </Box>
                                     <Typography
                                         variant="caption"
