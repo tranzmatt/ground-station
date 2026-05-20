@@ -143,6 +143,7 @@ function extractSatelliteIdentity(output) {
 function getStateForEvent(eventType, message, fallbackState = 'detected') {
     const normalizedMessage = String(message || '').toLowerCase();
     if (eventType === 'acquisition') return 'acquired';
+    if (eventType === 'lost') return 'lost';
     if (eventType === 'tracking' || eventType === 'nmea' || eventType === 'nmea_gga' || eventType === 'nmea_rmc') {
         return 'tracking';
     }

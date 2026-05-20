@@ -676,22 +676,45 @@ class GNSSSdrDecoder(BaseDecoderProcess):
             parsed["satellite_prn"] = int(acq_match.group(3))
             return parsed
 
-        pull_in_match = re.search(
+        # GNSS-SDR loss/tracking lines appear in both of these orders:
+        #   "for satellite ... in channel N"
+        #   "in channel N for satellite ..."
+        satellite_desc = None
+        channel = None
+
+        satellite_first_match = re.search(
             r"for satellite\s+(.+?)\s+in channel\s+(\d+)",
             line,
+            flags=re.IGNORECASE,
         )
-        if pull_in_match:
-            satellite_desc = pull_in_match.group(1).strip()
-            parsed["satellite"] = satellite_desc
-            parsed["channel"] = int(pull_in_match.group(2))
+        if satellite_first_match:
+            satellite_desc = satellite_first_match.group(1).strip()
+            channel = int(satellite_first_match.group(2))
+        else:
+            channel_first_match = re.search(
+                r"(?:in|on)\s+channel\s+(\d+)\s+for satellite\s+(.+)$",
+                line,
+                flags=re.IGNORECASE,
+            )
+            if channel_first_match:
+                channel = int(channel_first_match.group(1))
+                satellite_desc = channel_first_match.group(2).strip()
 
-            # Normalize known tracking line formats:
+        if satellite_desc:
+            parsed["satellite"] = satellite_desc
+        if channel is not None:
+            parsed["channel"] = channel
+
+        if satellite_desc:
+            # Normalize known line formats:
             #   "GPS PRN 04 ..."
             #   "Galileo PRN E29 ..."
-            #   "QZSS PRN 195 ..."
+            #   "G 04"
+            #   "E 29"
             tracking_sat_match = re.search(
                 r"([A-Za-z]+)\s+PRN\s+([A-Za-z]?\d+)",
                 satellite_desc,
+                flags=re.IGNORECASE,
             )
             if tracking_sat_match:
                 system_name = tracking_sat_match.group(1).strip().upper()
@@ -710,6 +733,17 @@ class GNSSSdrDecoder(BaseDecoderProcess):
                 }
                 if system_name in system_map:
                     parsed["satellite_system"] = system_map[system_name]
+                elif len(system_name) == 1:
+                    parsed["satellite_system"] = system_name
+            else:
+                short_sat_match = re.search(
+                    r"\b([A-Za-z])\s*(\d+)\b",
+                    satellite_desc,
+                    flags=re.IGNORECASE,
+                )
+                if short_sat_match:
+                    parsed["satellite_system"] = short_sat_match.group(1).upper()
+                    parsed["satellite_prn"] = int(short_sat_match.group(2))
 
         return parsed
 
@@ -723,6 +757,7 @@ class GNSSSdrDecoder(BaseDecoderProcess):
 
         status = None
         event_type = None
+        normalized_message = message.lower()
         if "Successful acquisition" in message:
             status = DecoderStatus.ACQUIRING
             event_type = "acquisition"
@@ -732,6 +767,9 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         elif "First NMEA message" in message:
             status = DecoderStatus.TRACKING
             event_type = "nmea"
+        elif "loss of lock" in normalized_message:
+            # Explicitly emit lock-loss events so the UI can mark satellites as lost.
+            event_type = "lost"
 
         if status is not None and (now - self._last_log_status_emit_ts) >= 0.25:
             self._last_log_status_emit_ts = now
