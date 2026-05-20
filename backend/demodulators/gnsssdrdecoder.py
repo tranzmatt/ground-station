@@ -802,8 +802,11 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         except Exception:
             return
 
+        # Keep log parsing strictly scoped to lock-loss lines.
+        # Acquisition/tracking events are already sourced from UDP monitor streams.
         for line in new_lines[-50:]:
-            self._handle_gnss_log_line(line)
+            if "loss of lock" in line.lower():
+                self._handle_gnss_log_line(line)
 
     def _write_zmq_payload(
         self, payload: bytes, sample_count: int
@@ -1355,6 +1358,7 @@ class GNSSSdrDecoder(BaseDecoderProcess):
 
                 if now - last_monitor_poll >= 0.2:
                     self._poll_monitor_updates()
+                    self._poll_gnss_log_updates()
                     last_monitor_poll = now
 
                 if self.gnss_process and self.gnss_process.poll() is not None:

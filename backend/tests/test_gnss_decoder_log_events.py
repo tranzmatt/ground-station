@@ -76,3 +76,28 @@ def test_handle_gnss_log_line_emits_lost_event_satellite_first_format():
     assert emitted[0]["satellite_system"] == "E"
     assert emitted[0]["satellite_prn"] == 29
     assert emitted[0]["channel"] == 2
+
+
+def test_poll_gnss_log_updates_processes_only_loss_lines(tmp_path):
+    decoder = _build_decoder()
+    log_file = tmp_path / "gnss.log"
+    log_file.write_text(
+        "\n".join(
+            [
+                "Tracking in channel 1 for satellite GPS PRN 03",
+                "Loss of lock in channel 1 for satellite GPS PRN 03",
+                "Successful acquisition in channel 1 for satellite G 3",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    decoder.gnss_info_log_path = str(log_file)
+    decoder.gnss_log_read_offset = 0
+    handled_lines = []
+    decoder._handle_gnss_log_line = lambda line: handled_lines.append(line.strip())
+
+    decoder._poll_gnss_log_updates()
+
+    assert handled_lines == ["Loss of lock in channel 1 for satellite GPS PRN 03"]
