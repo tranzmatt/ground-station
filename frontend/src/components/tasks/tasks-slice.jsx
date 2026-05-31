@@ -24,17 +24,19 @@ export const stopBackgroundTask = createAsyncThunk(
     async ({ socket, task_id, timeout = 5.0 }, { rejectWithValue }) => {
         try {
             const response = await new Promise((resolve, reject) => {
-                socket.emit(
-                    'background_task:stop',
-                    { task_id, timeout },
-                    (result) => {
-                        if (result?.success) {
-                            resolve(result);
-                        } else {
-                            reject(new Error(result?.error || 'Unknown error'));
-                        }
-                    }
-                );
+                socket.emit("api.call", {
+  cmd: "background-task.stop",
+  data: {
+    task_id,
+    timeout
+  }
+}, result => {
+  if (result?.success) {
+    resolve(result);
+  } else {
+    reject(new Error(result?.error || 'Unknown error'));
+  }
+});
             });
             return response;
         } catch (error) {

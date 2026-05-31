@@ -610,22 +610,22 @@ def register_handlers(registry):
     registry.register_batch(
         {
             # Scheduled observations
-            "get-scheduled-observations": (get_scheduled_observations, "data_request"),
-            "create-scheduled-observation": (create_scheduled_observation, "data_submission"),
-            "update-scheduled-observation": (update_scheduled_observation, "data_submission"),
-            "delete-scheduled-observations": (delete_scheduled_observations, "data_submission"),
-            "toggle-observation-enabled": (toggle_observation_enabled, "data_submission"),
-            "cancel-observation": (cancel_observation, "data_submission"),
+            "get-scheduled-observations": (get_scheduled_observations, "api_call"),
+            "create-scheduled-observation": (create_scheduled_observation, "api_call"),
+            "update-scheduled-observation": (update_scheduled_observation, "api_call"),
+            "delete-scheduled-observations": (delete_scheduled_observations, "api_call"),
+            "toggle-observation-enabled": (toggle_observation_enabled, "api_call"),
+            "cancel-observation": (cancel_observation, "api_call"),
             # Monitored satellites
-            "get-monitored-satellites": (get_monitored_satellites, "data_request"),
-            "create-monitored-satellite": (create_monitored_satellite, "data_submission"),
-            "update-monitored-satellite": (update_monitored_satellite, "data_submission"),
-            "delete-monitored-satellites": (delete_monitored_satellites, "data_submission"),
+            "get-monitored-satellites": (get_monitored_satellites, "api_call"),
+            "create-monitored-satellite": (create_monitored_satellite, "api_call"),
+            "update-monitored-satellite": (update_monitored_satellite, "api_call"),
+            "delete-monitored-satellites": (delete_monitored_satellites, "api_call"),
             "toggle-monitored-satellite-enabled": (
                 toggle_monitored_satellite_enabled,
-                "data_submission",
+                "api_call",
             ),
             # Observation generation
-            "regenerate-observations": (regenerate_observations, "data_submission"),
+            "regenerate-observations": (regenerate_observations, "api_call"),
         }
     )

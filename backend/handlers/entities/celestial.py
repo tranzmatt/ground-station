@@ -589,27 +589,27 @@ def register_handlers(registry):
     """Register celestial handlers with command registry."""
     registry.register_batch(
         {
-            "get-celestial-scene": (get_celestial_scene, "data_request"),
-            "get-solar-system-scene": (get_solar_system_scene, "data_request"),
-            "get-celestial-tracks": (get_celestial_tracks, "data_request"),
-            "refresh-celestial-now": (refresh_celestial_now, "data_submission"),
+            "get-celestial-scene": (get_celestial_scene, "api_call"),
+            "get-solar-system-scene": (get_solar_system_scene, "api_call"),
+            "get-celestial-tracks": (get_celestial_tracks, "api_call"),
+            "refresh-celestial-now": (refresh_celestial_now, "api_call"),
             "refresh-monitored-celestial-now": (
                 refresh_monitored_celestial_now,
-                "data_submission",
+                "api_call",
             ),
-            "get-monitored-celestial": (get_monitored_celestial, "data_request"),
-            "get-spacecraft-index": (get_spacecraft_index_entries, "data_request"),
-            "get-celestial-body-catalog": (get_celestial_body_catalog, "data_request"),
+            "get-monitored-celestial": (get_monitored_celestial, "api_call"),
+            "get-spacecraft-index": (get_spacecraft_index_entries, "api_call"),
+            "get-celestial-body-catalog": (get_celestial_body_catalog, "api_call"),
             "search-spacecraft-index": (
                 search_spacecraft_index_entries,
-                "data_request",
+                "api_call",
             ),
-            "create-monitored-celestial": (create_monitored_celestial, "data_submission"),
-            "update-monitored-celestial": (update_monitored_celestial, "data_submission"),
-            "delete-monitored-celestial": (delete_monitored_celestial, "data_submission"),
+            "create-monitored-celestial": (create_monitored_celestial, "api_call"),
+            "update-monitored-celestial": (update_monitored_celestial, "api_call"),
+            "delete-monitored-celestial": (delete_monitored_celestial, "api_call"),
             "toggle-monitored-celestial-enabled": (
                 toggle_monitored_celestial_enabled,
-                "data_submission",
+                "api_call",
             ),
         }
     )

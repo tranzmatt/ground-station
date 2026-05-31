@@ -40,7 +40,10 @@ const TransmitterImportCard = () => {
 
         setActiveSource(source);
         try {
-            const response = await socket.emitWithAck('transmitter_import', { source });
+            const response = await socket.emitWithAck('api.call', {
+                cmd: `transmitter-import.${source}`,
+                data: { source }
+            });
             if (response.success) {
                 setResults((prev) => ({ ...prev, [source]: response }));
                 toast.success(

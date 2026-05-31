@@ -226,12 +226,12 @@ def register_handlers(registry):
     """Register satellite group handlers with the command registry."""
     registry.register_batch(
         {
-            "get-satellite-groups": (get_satellite_groups, "data_request"),
-            "get-satellite-groups-user": (get_satellite_groups_user, "data_request"),
-            "get-satellite-groups-system": (get_satellite_groups_system, "data_request"),
-            "submit-satellite-group": (submit_satellite_group, "data_submission"),
-            "edit-satellite-group": (edit_satellite_group, "data_submission"),
-            "delete-satellite-group": (delete_satellite_group, "data_submission"),
-            "fetch-next-passes-for-group": (fetch_next_passes_for_group, "data_request"),
+            "get-satellite-groups": (get_satellite_groups, "api_call"),
+            "get-satellite-groups-user": (get_satellite_groups_user, "api_call"),
+            "get-satellite-groups-system": (get_satellite_groups_system, "api_call"),
+            "submit-satellite-group": (submit_satellite_group, "api_call"),
+            "edit-satellite-group": (edit_satellite_group, "api_call"),
+            "delete-satellite-group": (delete_satellite_group, "api_call"),
+            "fetch-next-passes-for-group": (fetch_next_passes_for_group, "api_call"),
         }
     )

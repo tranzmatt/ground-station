@@ -26,13 +26,16 @@ export const fetchLocalSoapySDRDevices = createAsyncThunk(
     async ({socket}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-local-soapy-sdr-devices', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch local SoapySDR devices'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-local-soapy-sdr-devices',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch local SoapySDR devices'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -46,13 +49,16 @@ export const fetchLocalRtlSdrDevices = createAsyncThunk(
     async ({socket}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-local-rtl-sdr-devices', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch local RTL-SDR devices'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-local-rtl-sdr-devices',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch local RTL-SDR devices'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -66,13 +72,16 @@ export const fetchSoapySDRServers = createAsyncThunk(
     async ({socket}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-soapy-servers', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch SoapySDR servers'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-soapy-servers',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch SoapySDR servers'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -85,22 +94,24 @@ export const startSoapySDRDiscovery = createAsyncThunk(
     async ({ socket, mode = 'single', refresh_interval = 120 }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit(
-                    'background_task:start',
-                    {
-                        task_name: 'soapysdr_discovery',
-                        args: [],
-                        kwargs: { mode, refresh_interval },
-                        name: 'SoapySDR Discovery',
-                    },
-                    (res) => {
-                        if (res?.success) {
-                            resolve(res);
-                        } else {
-                            reject(new Error(res?.error || 'Failed to start SoapySDR discovery'));
-                        }
-                    }
-                );
+                socket.emit("api.call", {
+  cmd: "background-task.start",
+  data: {
+    task_name: 'soapysdr_discovery',
+    args: [],
+    kwargs: {
+      mode,
+      refresh_interval
+    },
+    name: 'SoapySDR Discovery'
+  }
+}, res => {
+  if (res?.success) {
+    resolve(res);
+  } else {
+    reject(new Error(res?.error || 'Failed to start SoapySDR discovery'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -114,13 +125,16 @@ export const fetchSDRs = createAsyncThunk(
     async ({ socket }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-sdrs', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch SDRs'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-sdrs',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch SDRs'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -133,13 +147,16 @@ export const deleteSDRs = createAsyncThunk(
     async ({ socket, selectedIds }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-sdr', selectedIds, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to delete SDRs'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-sdr',
+  data: selectedIds
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to delete SDRs'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -153,14 +170,17 @@ export const submitOrEditSDR = createAsyncThunk(
         const action = formValues.id ? 'edit-sdr' : 'submit-sdr';
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', action, formValues, (response) => {
-                    if (response.success) {
-                        dispatch(setOpenAddDialog(false));
-                        resolve(response.data);
-                    } else {
-                        reject(new Error(`Failed to ${action === 'edit-sdr' ? 'edit' : 'add'} SDR`));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: action,
+  data: formValues
+}, response => {
+  if (response.success) {
+    dispatch(setOpenAddDialog(false));
+    resolve(response.data);
+  } else {
+    reject(new Error(`Failed to ${action === 'edit-sdr' ? 'edit' : 'add'} SDR`));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

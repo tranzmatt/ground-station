@@ -215,28 +215,36 @@ const useWaterfallStream = ({
                 }
             }
 
-            socket.emit('sdr_data', 'configure-sdr', {
-                selectedSDRId,
-                centerFrequency,
-                sampleRate,
-                gain,
-                fftSize,
-                biasT,
-                tunerAgc,
-                rtlAgc,
-                fftWindow,
-                fftOverlapPercent,
-                fftOverlapDepth,
-                antenna: selectedAntenna,
-                offsetFrequency: selectedOffsetValue,
-                soapyAgc,
-                fftAveraging,
-                sdrSettings: sdrSettingsById?.[selectedSDRId]?.draft || {},
-            }, (response) => {
-                if (response['success']) {
-                    socket.emit('sdr_data', 'start-streaming', { selectedSDRId });
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.configure-sdr",
+  data: {
+    selectedSDRId,
+    centerFrequency,
+    sampleRate,
+    gain,
+    fftSize,
+    biasT,
+    tunerAgc,
+    rtlAgc,
+    fftWindow,
+    fftOverlapPercent,
+    fftOverlapDepth,
+    antenna: selectedAntenna,
+    offsetFrequency: selectedOffsetValue,
+    soapyAgc,
+    fftAveraging,
+    sdrSettings: sdrSettingsById?.[selectedSDRId]?.draft || {}
+  }
+}, response => {
+  if (response['success']) {
+    socket.emit("api.call", {
+  cmd: "sdr.start-streaming",
+  data: {
+    selectedSDRId
+  }
+});
+  }
+});
         }
     }, [isStreaming, dispatch, socket, selectedSDRId, centerFrequency, sampleRate, gain, fftSize, biasT, tunerAgc, rtlAgc, fftWindow, fftOverlapPercent, fftOverlapDepth, selectedAntenna, selectedOffsetValue, soapyAgc, fftAveraging, getAudioState, initializeAudio, isUnsetSelection, expandedPanels]);
 
@@ -265,7 +273,12 @@ const useWaterfallStream = ({
             }
 
             // Now stop streaming
-            socket.emit('sdr_data', 'stop-streaming', { selectedSDRId });
+            socket.emit("api.call", {
+  cmd: "sdr.stop-streaming",
+  data: {
+    selectedSDRId
+  }
+});
             dispatch(setIsStreaming(false));
             cancelAnimations();
         }

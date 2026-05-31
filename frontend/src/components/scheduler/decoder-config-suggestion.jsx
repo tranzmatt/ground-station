@@ -58,26 +58,24 @@ export const DecoderConfigSuggestion = ({ decoderType, satellite, transmitter, s
             setLoading(true);
             setError(null);
 
-            socket.emit(
-                'data_request',
-                'get-decoder-config',
-                {
-                    decoder_type: decoderType,
-                    satellite: satellite || undefined,
-                    transmitter: transmitter || undefined,
-                },
-                (response) => {
-                    console.log('[DecoderConfigSuggestion] Backend response:', response);
-                    setLoading(false);
-                    if (response.success) {
-                        console.log('[DecoderConfigSuggestion] Config data:', response.data);
-                        setConfig(response.data);
-                    } else {
-                        console.error('[DecoderConfigSuggestion] Error:', response.error);
-                        setError(response.error || 'Failed to fetch decoder configuration');
-                    }
-                }
-            );
+            socket.emit("api.call", {
+  cmd: 'get-decoder-config',
+  data: {
+    decoder_type: decoderType,
+    satellite: satellite || undefined,
+    transmitter: transmitter || undefined
+  }
+}, response => {
+  console.log('[DecoderConfigSuggestion] Backend response:', response);
+  setLoading(false);
+  if (response.success) {
+    console.log('[DecoderConfigSuggestion] Config data:', response.data);
+    setConfig(response.data);
+  } else {
+    console.error('[DecoderConfigSuggestion] Error:', response.error);
+    setError(response.error || 'Failed to fetch decoder configuration');
+  }
+});
         };
 
         fetchConfig();

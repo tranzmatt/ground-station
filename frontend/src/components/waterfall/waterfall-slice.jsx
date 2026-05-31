@@ -97,14 +97,17 @@ export const getSDRConfigParameters = createAsyncThunk(
             }
         }
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-sdr-parameters', selectedSDRId, (response) => {
-                if (response.success) {
-                    setCachedSDRConfigParameters(selectedSDRId, response.data);
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response.error));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-sdr-parameters',
+  data: selectedSDRId
+}, response => {
+  if (response.success) {
+    setCachedSDRConfigParameters(selectedSDRId, response.data);
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response.error));
+  }
+});
         });
     }
 );
@@ -132,18 +135,21 @@ export const startRecording = createAsyncThunk(
             const targetNoradId = state.targetSatTrack?.trackingState?.norad_id || '';
             const targetSatelliteName = state.targetSatTrack?.satelliteData?.details?.name || '';
 
-            socket.emit('sdr_data', 'start-recording', {
-                recordingName,
-                selectedSDRId,
-                targetSatelliteNoradId: targetNoradId,
-                targetSatelliteName: targetSatelliteName
-            }, (response) => {
-                if (response && response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to start recording'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.start-recording",
+  data: {
+    recordingName,
+    selectedSDRId,
+    targetSatelliteNoradId: targetNoradId,
+    targetSatelliteName: targetSatelliteName
+  }
+}, response => {
+  if (response && response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to start recording'));
+  }
+});
         });
     }
 );
@@ -152,17 +158,20 @@ export const stopRecording = createAsyncThunk(
     'waterfall/stopRecording',
     async ({socket, selectedSDRId, waterfallImage, skipAutoWaterfall}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('sdr_data', 'stop-recording', {
-                selectedSDRId,
-                waterfallImage,
-                skipAutoWaterfall
-            }, (response) => {
-                if (response && response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to stop recording'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.stop-recording",
+  data: {
+    selectedSDRId,
+    waterfallImage,
+    skipAutoWaterfall
+  }
+}, response => {
+  if (response && response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to stop recording'));
+  }
+});
         });
     }
 );
@@ -171,16 +180,19 @@ export const saveWaterfallSnapshot = createAsyncThunk(
     'waterfall/saveWaterfallSnapshot',
     async ({socket, waterfallImage, snapshotName}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('sdr_data', 'save-waterfall-snapshot', {
-                waterfallImage,
-                snapshotName: snapshotName || ''
-            }, (response) => {
-                if (response && response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to save waterfall snapshot'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.save-waterfall-snapshot",
+  data: {
+    waterfallImage,
+    snapshotName: snapshotName || ''
+  }
+}, response => {
+  if (response && response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to save waterfall snapshot'));
+  }
+});
         });
     }
 );

@@ -95,15 +95,15 @@ def register_handlers(registry):
     registry.register_batch(
         {
             # New command names.
-            "get-orbital-sources": (get_orbital_sources, "data_request"),
-            "submit-orbital-sources": (submit_orbital_source, "data_submission"),
-            "edit-orbital-source": (edit_orbital_source, "data_submission"),
-            "delete-orbital-sources": (delete_orbital_sources, "data_submission"),
+            "get-orbital-sources": (get_orbital_sources, "api_call"),
+            "submit-orbital-sources": (submit_orbital_source, "api_call"),
+            "edit-orbital-source": (edit_orbital_source, "api_call"),
+            "delete-orbital-sources": (delete_orbital_sources, "api_call"),
             # Legacy command aliases.
-            "get-tle-sources": (get_orbital_sources, "data_request"),
-            "submit-tle-sources": (submit_orbital_source, "data_submission"),
-            "edit-tle-source": (edit_orbital_source, "data_submission"),
-            "delete-tle-sources": (delete_orbital_sources, "data_submission"),
-            "fetch-sync-state": (fetch_sync_state, "data_request"),
+            "get-tle-sources": (get_orbital_sources, "api_call"),
+            "submit-tle-sources": (submit_orbital_source, "api_call"),
+            "edit-tle-source": (edit_orbital_source, "api_call"),
+            "delete-tle-sources": (delete_orbital_sources, "api_call"),
+            "fetch-sync-state": (fetch_sync_state, "api_call"),
         }
     )

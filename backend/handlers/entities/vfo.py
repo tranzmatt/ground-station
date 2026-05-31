@@ -816,7 +816,7 @@ def register_handlers(registry):
     """Register VFO handlers with the command registry."""
     registry.register_batch(
         {
-            "update-vfo-parameters": (update_vfo_parameters, "data_submission"),
-            "toggle-transcription": (toggle_transcription, "data_submission"),
+            "update-vfo-parameters": (update_vfo_parameters, "api_call"),
+            "toggle-transcription": (toggle_transcription, "api_call"),
         }
     )

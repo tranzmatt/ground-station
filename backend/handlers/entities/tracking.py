@@ -973,15 +973,15 @@ def register_handlers(registry):
     """Register tracking handlers with the command registry."""
     registry.register_batch(
         {
-            "get-tracking-state": (get_tracking_state, "data_request"),
-            "set-tracking-state": (set_tracking_state, "data_submission"),
-            "swap-target-rotators": (swap_target_rotators, "data_submission"),
-            "get-tracker-instances": (get_tracker_instances, "data_request"),
-            "delete-tracker-instance": (delete_tracker_instance, "data_submission"),
-            "fetch-next-passes": (fetch_next_passes, "data_request"),
+            "get-tracking-state": (get_tracking_state, "api_call"),
+            "set-tracking-state": (set_tracking_state, "api_call"),
+            "swap-target-rotators": (swap_target_rotators, "api_call"),
+            "get-tracker-instances": (get_tracker_instances, "api_call"),
+            "delete-tracker-instance": (delete_tracker_instance, "api_call"),
+            "fetch-next-passes": (fetch_next_passes, "api_call"),
             "fetch-next-pass-summary-for-trackers": (
                 fetch_next_pass_summaries_for_trackers,
-                "data_request",
+                "api_call",
             ),
         }
     )

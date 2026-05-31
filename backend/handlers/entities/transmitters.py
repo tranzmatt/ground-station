@@ -137,8 +137,8 @@ def register_handlers(registry):
     """Register transmitter handlers with the command registry."""
     registry.register_batch(
         {
-            "submit-transmitter": (submit_transmitter, "data_submission"),
-            "edit-transmitter": (edit_transmitter, "data_submission"),
-            "delete-transmitter": (delete_transmitter, "data_submission"),
+            "submit-transmitter": (submit_transmitter, "api_call"),
+            "edit-transmitter": (edit_transmitter, "api_call"),
+            "delete-transmitter": (delete_transmitter, "api_call"),
         }
     )

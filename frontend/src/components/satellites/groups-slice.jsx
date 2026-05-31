@@ -26,17 +26,16 @@ export const fetchSatelliteGroups = createAsyncThunk(
     async ({ socket }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit(
-                    'data_request',
-                    'get-satellite-groups-user',
-                    (response) => {
-                        if (response && response.data) {
-                            resolve(response.data);
-                        } else {
-                            reject(new Error('Fetch failed.'));
-                        }
-                    }
-                );
+                socket.emit("api.call", {
+  cmd: 'get-satellite-groups-user',
+  data: null
+}, response => {
+  if (response && response.data) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Fetch failed.'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -49,20 +48,16 @@ export const deleteSatelliteGroups = createAsyncThunk(
     async ({ socket, groupIds }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit(
-                    'data_submission',
-                    'delete-satellite-group',
-                    groupIds,
-                    (response) => {
-                        if (response.success) {
-                            resolve(response.data);
-                        } else {
-                            reject(
-                                new Error(response.error || 'Delete operation failed.')
-                            );
-                        }
-                    }
-                );
+                socket.emit("api.call", {
+  cmd: 'delete-satellite-group',
+  data: groupIds
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error(response.error || 'Delete operation failed.'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -76,17 +71,16 @@ export const AddOrEditSatelliteGroup = createAsyncThunk(
     async ({socket, groupData}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', groupData.id ? 'edit-satellite-group' : 'add-satellite-group', groupData,
-                    (response) => {
-                        if (response.success) {
-                            resolve(response.data);
-                        } else {
-                            reject(
-                                new Error(response.error || 'Upsert operation failed.')
-                            );
-                        }
-                    }
-                );
+                socket.emit("api.call", {
+  cmd: groupData.id ? 'edit-satellite-group' : 'add-satellite-group',
+  data: groupData
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error(response.error || 'Upsert operation failed.'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

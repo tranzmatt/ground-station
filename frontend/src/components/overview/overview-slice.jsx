@@ -28,13 +28,16 @@ export const getOverviewMapSettings = createAsyncThunk(
     'overviewGroups/getOverviewMapSettings',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-map-settings', 'overview-map-settings', (response) => {
-                if (response.success) {
-                    resolve(response.data['value']);
-                } else {
-                    reject(rejectWithValue("Failed getting the overview map settings from backend"));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-map-settings',
+  data: 'overview-map-settings'
+}, response => {
+  if (response.success) {
+    resolve(response.data['value']);
+  } else {
+    reject(rejectWithValue("Failed getting the overview map settings from backend"));
+  }
+});
         });
     }
 );
@@ -61,13 +64,19 @@ export const setOverviewMapSetting = createAsyncThunk(
         };
 
         return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'set-map-settings', {name: key, value: mapSettings}, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue('Failed to set the mapping settings in the backend'));
-                }
-            });
+                socket.emit("api.call", {
+  cmd: 'set-map-settings',
+  data: {
+    name: key,
+    value: mapSettings
+  }
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue('Failed to set the mapping settings in the backend'));
+  }
+});
         });
     }
 );
@@ -77,13 +86,16 @@ export const fetchSatelliteData = createAsyncThunk(
     'overviewGroups/fetchSatelliteData',
     async ({ socket, noradId }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-satellite', noradId, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(new Error('Failed to fetch satellites'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellite',
+  data: noradId
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to fetch satellites'));
+  }
+});
         });
     }
 );
@@ -93,13 +105,16 @@ export const fetchSatelliteGroups = createAsyncThunk(
     'overviewGroups/fetchSatelliteGroupsOverview',
     async ({ socket }, { rejectWithValue }) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-satellite-groups', null, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue('Failed to get satellite groups'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellite-groups',
+  data: null
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue('Failed to get satellite groups'));
+  }
+});
         });
     }
 );
@@ -112,15 +127,16 @@ export const fetchSatellitesByGroupId = createAsyncThunk(
             return rejectWithValue(`Invalid group id for overview satellites fetch: ${String(satGroupId)}`);
         }
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-satellites-for-group-id', satGroupId, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(
-                        rejectWithValue(`Failed to set satellites for group id: ${satGroupId}`)
-                    );
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellites-for-group-id',
+  data: satGroupId
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(`Failed to set satellites for group id: ${satGroupId}`));
+  }
+});
         });
     }
 );
@@ -130,24 +146,27 @@ export const fetchNextPassesForGroup = createAsyncThunk(
     'overviewPasses/fetchNextPassesForGroup',
     async ({ socket, selectedSatGroupId, hours, forceRecalculate = false }, { getState, rejectWithValue }) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'fetch-next-passes-for-group', {
-                group_id: selectedSatGroupId,
-                hours: hours,
-                force_recalculate: forceRecalculate
-            }, (response) => {
-                if (response.success) {
-                    resolve({
-                        passes: response.data,
-                        cached: response.cached,
-                        forecast_hours: response.forecast_hours,
-                        pass_range_start: response.pass_range_start,
-                        pass_range_end: response.pass_range_end,
-                        groupId: selectedSatGroupId
-                    });
-                } else {
-                    reject(rejectWithValue('Failed getting next passes'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'fetch-next-passes-for-group',
+  data: {
+    group_id: selectedSatGroupId,
+    hours: hours,
+    force_recalculate: forceRecalculate
+  }
+}, response => {
+  if (response.success) {
+    resolve({
+      passes: response.data,
+      cached: response.cached,
+      forecast_hours: response.forecast_hours,
+      pass_range_start: response.pass_range_start,
+      pass_range_end: response.pass_range_end,
+      groupId: selectedSatGroupId
+    });
+  } else {
+    reject(rejectWithValue('Failed getting next passes'));
+  }
+});
         });
     }
 );

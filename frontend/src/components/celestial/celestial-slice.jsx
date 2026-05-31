@@ -23,13 +23,16 @@ export const fetchCelestialScene = createAsyncThunk(
     'celestial/fetchScene',
     async ({ socket, payload = {} }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-celestial-scene', payload, (response) => {
-                if (response?.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to fetch celestial scene'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-celestial-scene',
+  data: payload
+}, response => {
+  if (response?.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to fetch celestial scene'));
+  }
+});
         });
     }
 );
@@ -38,13 +41,16 @@ export const fetchSolarSystemScene = createAsyncThunk(
     'celestial/fetchSolarSystemScene',
     async ({ socket, payload = {} }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-solar-system-scene', payload, (response) => {
-                if (response?.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to fetch solar system scene'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-solar-system-scene',
+  data: payload
+}, response => {
+  if (response?.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to fetch solar system scene'));
+  }
+});
         });
     }
 );
@@ -53,13 +59,16 @@ export const fetchCelestialTracks = createAsyncThunk(
     'celestial/fetchCelestialTracks',
     async ({ socket, payload = {} }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-celestial-tracks', payload, (response) => {
-                if (response?.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to fetch celestial tracks'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-celestial-tracks',
+  data: payload
+}, response => {
+  if (response?.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to fetch celestial tracks'));
+  }
+});
         });
     }
 );
@@ -68,13 +77,16 @@ export const refreshCelestialScene = createAsyncThunk(
     'celestial/refreshScene',
     async ({ socket, payload = {} }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'refresh-celestial-now', payload, (response) => {
-                if (response?.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to refresh celestial scene'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'refresh-celestial-now',
+  data: payload
+}, response => {
+  if (response?.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to refresh celestial scene'));
+  }
+});
         });
     }
 );
@@ -83,13 +95,19 @@ export const refreshMonitoredCelestialNow = createAsyncThunk(
     'celestial/refreshMonitoredNow',
     async ({ socket, ids = [], payload = {} }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'refresh-monitored-celestial-now', { ids, ...payload }, (response) => {
-                if (response?.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to refresh monitored celestial targets'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'refresh-monitored-celestial-now',
+  data: {
+    ids,
+    ...payload
+  }
+}, response => {
+  if (response?.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to refresh monitored celestial targets'));
+  }
+});
         });
     }
 );
@@ -98,13 +116,16 @@ export const getCelestialMapSettings = createAsyncThunk(
     'celestial/getMapSettings',
     async ({ socket }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-map-settings', 'celestial-map-settings', (response) => {
-                if (response?.success) {
-                    resolve(response?.data?.value || null);
-                } else {
-                    reject(rejectWithValue('Failed to get celestial map settings'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-map-settings',
+  data: 'celestial-map-settings'
+}, response => {
+  if (response?.success) {
+    resolve(response?.data?.value || null);
+  } else {
+    reject(rejectWithValue('Failed to get celestial map settings'));
+  }
+});
         });
     }
 );
@@ -113,18 +134,19 @@ export const setCelestialMapSettings = createAsyncThunk(
     'celestial/setMapSettings',
     async ({ socket, value }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit(
-                'data_submission',
-                'set-map-settings',
-                { name: 'celestial-map-settings', value },
-                (response) => {
-                    if (response?.success) {
-                        resolve(response?.data?.value || value);
-                    } else {
-                        reject(rejectWithValue('Failed to set celestial map settings'));
-                    }
-                }
-            );
+            socket.emit("api.call", {
+  cmd: 'set-map-settings',
+  data: {
+    name: 'celestial-map-settings',
+    value
+  }
+}, response => {
+  if (response?.success) {
+    resolve(response?.data?.value || value);
+  } else {
+    reject(rejectWithValue('Failed to set celestial map settings'));
+  }
+});
         });
     }
 );

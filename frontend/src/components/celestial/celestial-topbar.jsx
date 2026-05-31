@@ -256,12 +256,17 @@ const CelestialTopBar = ({
             return;
         }
         let active = true;
-        socket.emit('data_request', 'get-spacecraft-index', { limit: 1000 }, (response) => {
-            if (!active) return;
-            if (response?.success) {
-                setCatalogEntries(response.data || []);
-            }
-        });
+        socket.emit("api.call", {
+  cmd: 'get-spacecraft-index',
+  data: {
+    limit: 1000
+  }
+}, response => {
+  if (!active) return;
+  if (response?.success) {
+    setCatalogEntries(response.data || []);
+  }
+});
         return () => {
             active = false;
         };
@@ -272,12 +277,15 @@ const CelestialTopBar = ({
             return;
         }
         let active = true;
-        socket.emit('data_request', 'get-celestial-body-catalog', null, (response) => {
-            if (!active) return;
-            if (response?.success) {
-                setBodyCatalogEntries(response.data || []);
-            }
-        });
+        socket.emit("api.call", {
+  cmd: 'get-celestial-body-catalog',
+  data: null
+}, response => {
+  if (!active) return;
+  if (response?.success) {
+    setBodyCatalogEntries(response.data || []);
+  }
+});
         return () => {
             active = false;
         };
@@ -291,18 +299,23 @@ const CelestialTopBar = ({
         let active = true;
         setCatalogLoading(true);
         setCatalogError('');
-        socket.emit('data_request', 'get-spacecraft-index', { limit: 1000 }, (response) => {
-            if (!active) {
-                return;
-            }
-            if (response?.success) {
-                setCatalogEntries(response.data || []);
-            } else {
-                setCatalogEntries([]);
-                setCatalogError(response?.error || 'Failed to load spacecraft catalog.');
-            }
-            setCatalogLoading(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'get-spacecraft-index',
+  data: {
+    limit: 1000
+  }
+}, response => {
+  if (!active) {
+    return;
+  }
+  if (response?.success) {
+    setCatalogEntries(response.data || []);
+  } else {
+    setCatalogEntries([]);
+    setCatalogError(response?.error || 'Failed to load spacecraft catalog.');
+  }
+  setCatalogLoading(false);
+});
 
         return () => {
             active = false;
@@ -317,18 +330,21 @@ const CelestialTopBar = ({
         let active = true;
         setBodyCatalogLoading(true);
         setBodyCatalogError('');
-        socket.emit('data_request', 'get-celestial-body-catalog', null, (response) => {
-            if (!active) {
-                return;
-            }
-            if (response?.success) {
-                setBodyCatalogEntries(response.data || []);
-            } else {
-                setBodyCatalogEntries([]);
-                setBodyCatalogError(response?.error || 'Failed to load celestial body catalog.');
-            }
-            setBodyCatalogLoading(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'get-celestial-body-catalog',
+  data: null
+}, response => {
+  if (!active) {
+    return;
+  }
+  if (response?.success) {
+    setBodyCatalogEntries(response.data || []);
+  } else {
+    setBodyCatalogEntries([]);
+    setBodyCatalogError(response?.error || 'Failed to load celestial body catalog.');
+  }
+  setBodyCatalogLoading(false);
+});
 
         return () => {
             active = false;

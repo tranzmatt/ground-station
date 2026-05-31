@@ -474,14 +474,14 @@ def register_handlers(registry):
     """Register satellite handlers with the command registry."""
     registry.register_batch(
         {
-            "get-satellites": (get_satellites, "data_request"),
-            "get-satellite": (get_satellite, "data_request"),
-            "get-satellites-for-group-id": (get_satellites_for_group_id, "data_request"),
-            "get-satellite-search": (search_satellites, "data_request"),
-            "get-target-search": (search_targets, "data_request"),
-            "submit-satellite": (submit_satellite, "data_submission"),
-            "edit-satellite": (edit_satellite, "data_submission"),
-            "delete-satellite": (delete_satellite, "data_submission"),
-            "sync-satellite-data": (sync_satellite_data, "data_request"),
+            "get-satellites": (get_satellites, "api_call"),
+            "get-satellite": (get_satellite, "api_call"),
+            "get-satellites-for-group-id": (get_satellites_for_group_id, "api_call"),
+            "get-satellite-search": (search_satellites, "api_call"),
+            "get-target-search": (search_targets, "api_call"),
+            "submit-satellite": (submit_satellite, "api_call"),
+            "edit-satellite": (edit_satellite, "api_call"),
+            "delete-satellite": (delete_satellite, "api_call"),
+            "sync-satellite-data": (sync_satellite_data, "api_call"),
         }
     )

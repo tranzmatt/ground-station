@@ -152,13 +152,16 @@ const ObservationDataDialog = ({ open, onClose, observation }) => {
         socket.on('file_browser_state', handleFileBrowserState);
 
         // Request all files
-        socket.emit('file_browser', 'list-files', {
-            showRecordings: true,
-            showSnapshots: true,
-            showDecoded: true,
-            showAudio: true,
-            showTranscriptions: true,
-        });
+        socket.emit("api.call", {
+  cmd: "filebrowser.list-files",
+  data: {
+    showRecordings: true,
+    showSnapshots: true,
+    showDecoded: true,
+    showAudio: true,
+    showTranscriptions: true
+  }
+});
 
         return () => {
             socket.off('file_browser_state', handleFileBrowserState);

@@ -5,7 +5,7 @@ Exposes read-only commands for the UI to retrieve:
 - A merged runtime snapshot of sessions and SDR workers (process/consumers)
 - A per-session view merging relationships and configuration
 
-Commands (data_request):
+Commands (api.call):
 - "fetch_runtime_snapshot":
     Input (optional): { "session_id"?: str, "sdr_id"?: str }
     Output: { success: bool, data?: { sessions: {}, sdrs: {} }, error?: str }
@@ -134,7 +134,7 @@ def register_handlers(registry):
     """Register session snapshot handlers with the command registry."""
     registry.register_batch(
         {
-            "fetch_runtime_snapshot": (fetch_runtime_snapshot, "data_request"),
-            "fetch_session_view": (fetch_session_view, "data_request"),
+            "fetch_runtime_snapshot": (fetch_runtime_snapshot, "api_call"),
+            "fetch_session_view": (fetch_session_view, "api_call"),
         }
     )

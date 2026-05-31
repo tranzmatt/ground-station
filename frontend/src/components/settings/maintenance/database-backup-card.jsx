@@ -70,8 +70,11 @@ const DatabaseBackupCard = () => {
 
         setLoading(true);
         try {
-            const response = await socket.emitWithAck('database_backup', {
-                action: 'list_tables'
+            const response = await socket.emitWithAck('api.call', {
+                cmd: 'database-backup.list_tables',
+                data: {
+                    action: 'list_tables'
+                }
             });
 
             if (response.success) {
@@ -90,9 +93,12 @@ const DatabaseBackupCard = () => {
         if (!socket) return;
 
         try {
-            const response = await socket.emitWithAck('database_backup', {
-                action: 'backup_table',
-                table: tableName
+            const response = await socket.emitWithAck('api.call', {
+                cmd: 'database-backup.backup_table',
+                data: {
+                    action: 'backup_table',
+                    table: tableName
+                }
             });
 
             if (response.success) {
@@ -135,11 +141,14 @@ const DatabaseBackupCard = () => {
         try {
             const sqlContent = await selectedFile.text();
 
-            const response = await socket.emitWithAck('database_backup', {
-                action: 'restore_table',
-                table: restoreDialog.table,
-                sql: sqlContent,
-                delete_first: deleteBeforeRestore
+            const response = await socket.emitWithAck('api.call', {
+                cmd: 'database-backup.restore_table',
+                data: {
+                    action: 'restore_table',
+                    table: restoreDialog.table,
+                    sql: sqlContent,
+                    delete_first: deleteBeforeRestore
+                }
             });
 
             if (response.success) {
@@ -158,8 +167,11 @@ const DatabaseBackupCard = () => {
         if (!socket) return;
 
         try {
-            const response = await socket.emitWithAck('database_backup', {
-                action: 'full_backup'
+            const response = await socket.emitWithAck('api.call', {
+                cmd: 'database-backup.full_backup',
+                data: {
+                    action: 'full_backup'
+                }
             });
 
             if (response.success) {
@@ -219,10 +231,13 @@ const DatabaseBackupCard = () => {
         try {
             const sqlContent = await fullRestoreFile.text();
 
-            const response = await socket.emitWithAck('database_backup', {
-                action: 'full_restore',
-                sql: sqlContent,
-                drop_tables: dropTables
+            const response = await socket.emitWithAck('api.call', {
+                cmd: 'database-backup.full_restore',
+                data: {
+                    action: 'full_restore',
+                    sql: sqlContent,
+                    drop_tables: dropTables
+                }
             });
 
             if (response.success) {

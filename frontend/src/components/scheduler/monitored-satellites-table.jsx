@@ -139,18 +139,21 @@ const MonitoredSatellitesTable = () => {
             setIsLoadingPreview(true);
             setRegenerationTargetId(monitoredSatelliteId);
 
-            socket.emit('data_submission', 'regenerate-observations', {
-                monitored_satellite_id: monitoredSatelliteId,
-                dry_run: true
-            }, (response) => {
-                setIsLoadingPreview(false);
-                if (response.success && response.dry_run) {
-                    setPreviewData(response);
-                    setOpenPreviewDialog(true);
-                } else {
-                    console.error('Dry-run failed:', response.error);
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'regenerate-observations',
+  data: {
+    monitored_satellite_id: monitoredSatelliteId,
+    dry_run: true
+  }
+}, response => {
+  setIsLoadingPreview(false);
+  if (response.success && response.dry_run) {
+    setPreviewData(response);
+    setOpenPreviewDialog(true);
+  } else {
+    console.error('Dry-run failed:', response.error);
+  }
+});
         }
     };
 
@@ -171,20 +174,23 @@ const MonitoredSatellitesTable = () => {
 
     const handlePreviewConfirm = (conflictChoices) => {
         if (socket) {
-            socket.emit('data_submission', 'regenerate-observations', {
-                monitored_satellite_id: regenerationTargetId,
-                dry_run: false,
-                user_conflict_overrides: conflictChoices
-            }, (response) => {
-                if (response.success) {
-                    console.log('Regeneration successful:', response.data);
-                    setOpenPreviewDialog(false);
-                    setPreviewData(null);
-                    setRegenerationTargetId(null);
-                } else {
-                    console.error('Regeneration failed:', response.error);
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'regenerate-observations',
+  data: {
+    monitored_satellite_id: regenerationTargetId,
+    dry_run: false,
+    user_conflict_overrides: conflictChoices
+  }
+}, response => {
+  if (response.success) {
+    console.log('Regeneration successful:', response.data);
+    setOpenPreviewDialog(false);
+    setPreviewData(null);
+    setRegenerationTargetId(null);
+  } else {
+    console.error('Regeneration failed:', response.error);
+  }
+});
         }
     };
 

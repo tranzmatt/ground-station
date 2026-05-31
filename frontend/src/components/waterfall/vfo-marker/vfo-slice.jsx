@@ -26,16 +26,19 @@ export const backendUpdateVFOParameters = createAsyncThunk(
     'vfo/updateVFOParameters',
     async ({socket, vfoNumber, updates}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'update-vfo-parameters', {
-                vfoNumber,
-                ...updates
-            }, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response.error));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'update-vfo-parameters',
+  data: {
+    vfoNumber,
+    ...updates
+  }
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response.error));
+  }
+});
         });
     }
 );
@@ -48,22 +51,28 @@ export const startAudioRecording = createAsyncThunk(
             const targetNoradId = state.targetSatTrack?.trackingState?.norad_id || '';
             const targetSatelliteName = state.targetSatTrack?.satelliteData?.details?.name || '';
 
-            socket.emit('sdr_data', 'start-audio-recording', {
-                selectedSDRId,
-                vfoNumber,
-                recordingName,
-                centerFrequency,
-                vfoFrequency,
-                demodulatorType,
-                targetSatelliteNoradId: targetNoradId,
-                targetSatelliteName: targetSatelliteName
-            }, (response) => {
-                if (response?.success) {
-                    resolve({vfoNumber, ...response.data});
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to start audio recording'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.start-audio-recording",
+  data: {
+    selectedSDRId,
+    vfoNumber,
+    recordingName,
+    centerFrequency,
+    vfoFrequency,
+    demodulatorType,
+    targetSatelliteNoradId: targetNoradId,
+    targetSatelliteName: targetSatelliteName
+  }
+}, response => {
+  if (response?.success) {
+    resolve({
+      vfoNumber,
+      ...response.data
+    });
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to start audio recording'));
+  }
+});
         });
     }
 );
@@ -72,16 +81,22 @@ export const stopAudioRecording = createAsyncThunk(
     'vfo/stopAudioRecording',
     async ({socket, vfoNumber, selectedSDRId}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('sdr_data', 'stop-audio-recording', {
-                selectedSDRId,
-                vfoNumber
-            }, (response) => {
-                if (response?.success) {
-                    resolve({vfoNumber, ...response.data});
-                } else {
-                    reject(rejectWithValue(response?.error || 'Failed to stop audio recording'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.stop-audio-recording",
+  data: {
+    selectedSDRId,
+    vfoNumber
+  }
+}, response => {
+  if (response?.success) {
+    resolve({
+      vfoNumber,
+      ...response.data
+    });
+  } else {
+    reject(rejectWithValue(response?.error || 'Failed to stop audio recording'));
+  }
+});
         });
     }
 );

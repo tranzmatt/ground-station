@@ -190,23 +190,27 @@ const SatelliteSearchAutocomplete = React.memo(function SatelliteSearchAutocompl
         requestRef.current = requestId;
         const timer = setTimeout(() => {
             setLoading(true);
-            socket.emit("data_request", "get-target-search", { query: keyword, limit: 20 }, (response) => {
-                if (requestId !== requestRef.current) {
-                    return;
-                }
-                if (response?.success) {
-                    const nextOptions = (Array.isArray(response?.data) ? response.data : [])
-                        .map((entry) => normalizeTargetOption(entry))
-                        .filter(Boolean);
-                    setOptions(nextOptions);
-                } else {
-                    toast.error(response?.error || 'Error searching targets', {
-                        autoClose: 5000,
-                    });
-                    setOptions([]);
-                }
-                setLoading(false);
-            });
+            socket.emit("api.call", {
+  cmd: "get-target-search",
+  data: {
+    query: keyword,
+    limit: 20
+  }
+}, response => {
+  if (requestId !== requestRef.current) {
+    return;
+  }
+  if (response?.success) {
+    const nextOptions = (Array.isArray(response?.data) ? response.data : []).map(entry => normalizeTargetOption(entry)).filter(Boolean);
+    setOptions(nextOptions);
+  } else {
+    toast.error(response?.error || 'Error searching targets', {
+      autoClose: 5000
+    });
+    setOptions([]);
+  }
+  setLoading(false);
+});
         }, 220);
         return () => clearTimeout(timer);
     }, [disabled, inputValue, open, socket]);

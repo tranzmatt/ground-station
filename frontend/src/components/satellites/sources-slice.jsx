@@ -72,13 +72,16 @@ export const fetchOrbitalSources = createAsyncThunk(
         try {
             // Wrap socket in a Promise for async behavior
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-orbital-sources', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch orbital sources'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-orbital-sources',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch orbital sources'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -91,13 +94,20 @@ export const deleteOrbitalSources = createAsyncThunk(
     async ({ socket, selectedIds }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-orbital-sources', selectedIds, (response) => {
-                    if (response.success) {
-                        resolve({data: response.data, message: response.message, summary: response.summary});
-                    } else {
-                        reject(new Error('Failed to delete orbital sources'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-orbital-sources',
+  data: selectedIds
+}, response => {
+  if (response.success) {
+    resolve({
+      data: response.data,
+      message: response.message,
+      summary: response.summary
+    });
+  } else {
+    reject(new Error('Failed to delete orbital sources'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -111,17 +121,16 @@ export const submitOrEditOrbitalSource = createAsyncThunk(
         const action = formValues.id ? 'edit-orbital-source' : 'submit-orbital-sources';
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', action, formValues, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(
-                            new Error(
-                                `Failed to ${action === 'edit-orbital-source' ? 'edit' : 'add'} orbital source`
-                            )
-                        );
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: action,
+  data: formValues
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error(`Failed to ${action === 'edit-orbital-source' ? 'edit' : 'add'} orbital source`));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

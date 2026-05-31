@@ -56,7 +56,7 @@ def register_handlers(registry):
     """Register app settings handlers with the command registry."""
     registry.register_batch(
         {
-            "get-app-config": (get_app_config, "data_request"),
-            "update-app-config": (update_app_config, "data_submission"),
+            "get-app-config": (get_app_config, "api_call"),
+            "update-app-config": (update_app_config, "api_call"),
         }
     )

@@ -26,13 +26,19 @@ export const fetchDetectedSatellite = createAsyncThunk(
     async ({ socket, noradId }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellite', noradId, (response) => {
-                    if (response.success) {
-                        resolve({ noradId, data: response.data });
-                    } else {
-                        reject(new Error('Failed to fetch satellite'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellite',
+  data: noradId
+}, response => {
+  if (response.success) {
+    resolve({
+      noradId,
+      data: response.data
+    });
+  } else {
+    reject(new Error('Failed to fetch satellite'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

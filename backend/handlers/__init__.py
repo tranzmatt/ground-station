@@ -43,7 +43,7 @@ from .entities import (
     transmitters,
 )
 from .entities.filebrowser import filebrowser_request_routing
-from .entities.sdr import sdr_data_request_routing
+from .entities.sdr import sdr_command_routing
 from .entities.tracking import emit_tracker_data, emit_ui_tracker_values
 from .routing import HandlerRegistry, dispatch_request, handler_registry
 
@@ -69,9 +69,9 @@ __all__ = [
     "sdr",
     "celestial",
     "decoderconfig",
-    # Special routing functions (for backwards compatibility)
+    # Special routing functions
     "filebrowser_request_routing",
-    "sdr_data_request_routing",
+    "sdr_command_routing",
     # Tracking utilities
     "emit_tracker_data",
     "emit_ui_tracker_values",

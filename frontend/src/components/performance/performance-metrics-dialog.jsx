@@ -46,12 +46,18 @@ const PerformanceMetricsDialog = () => {
     // Start monitoring when dialog opens, stop when it closes
     useEffect(() => {
         if (open && socket) {
-            socket.emit('start-monitoring');
+            socket.emit("api.call", {
+  cmd: "monitoring.start",
+  data: null
+});
         }
 
         return () => {
             if (socket) {
-                socket.emit('stop-monitoring');
+                socket.emit("api.call", {
+  cmd: "monitoring.stop",
+  data: null
+});
             }
         };
     }, [open, socket]);

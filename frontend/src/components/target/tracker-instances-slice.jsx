@@ -4,19 +4,16 @@ export const fetchTrackerInstances = createAsyncThunk(
     'trackerInstances/fetchTrackerInstances',
     async ({ socket }, { rejectWithValue }) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-tracker-instances', null, (response) => {
-                if (response?.success) {
-                    resolve(response?.data || {});
-                } else {
-                    reject(
-                        rejectWithValue(
-                            response?.message
-                            || response?.error
-                            || 'Failed to fetch tracker instances'
-                        )
-                    );
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-tracker-instances',
+  data: null
+}, response => {
+  if (response?.success) {
+    resolve(response?.data || {});
+  } else {
+    reject(rejectWithValue(response?.message || response?.error || 'Failed to fetch tracker instances'));
+  }
+});
         });
     }
 );
@@ -25,42 +22,34 @@ export const deleteTrackerInstance = createAsyncThunk(
     'trackerInstances/deleteTrackerInstance',
     async ({ socket, trackerId }, { rejectWithValue }) => {
         return new Promise((resolve, reject) => {
-            socket.emit(
-                'data_submission',
-                'delete-tracker-instance',
-                { tracker_id: trackerId },
-                async (response) => {
-                    if (response?.success) {
-                        try {
-                            const instances = Array.isArray(response?.data?.instances)
-                                ? response.data.instances
-                                : [];
-                            const nextTrackerId = String(instances?.[0]?.tracker_id || '').trim();
-                            if (nextTrackerId) {
-                                await new Promise((requestResolve) => {
-                                    socket.emit(
-                                        'data_request',
-                                        'get-tracking-state',
-                                        { tracker_id: nextTrackerId },
-                                        () => requestResolve()
-                                    );
-                                });
-                            }
-                        } catch (_error) {
-                            // Keep delete operation successful even if refresh fails.
-                        }
-                        resolve(response?.data || {});
-                    } else {
-                        reject(
-                            rejectWithValue(
-                                response?.message
-                                || response?.error
-                                || 'Failed to delete tracker instance'
-                            )
-                        );
-                    }
-                }
-            );
+            socket.emit("api.call", {
+  cmd: 'delete-tracker-instance',
+  data: {
+    tracker_id: trackerId
+  }
+}, async response => {
+  if (response?.success) {
+    try {
+      const instances = Array.isArray(response?.data?.instances) ? response.data.instances : [];
+      const nextTrackerId = String(instances?.[0]?.tracker_id || '').trim();
+      if (nextTrackerId) {
+        await new Promise(requestResolve => {
+          socket.emit("api.call", {
+  cmd: 'get-tracking-state',
+  data: {
+    tracker_id: nextTrackerId
+  }
+}, () => requestResolve());
+        });
+      }
+    } catch (_error) {
+      // Keep delete operation successful even if refresh fails.
+    }
+    resolve(response?.data || {});
+  } else {
+    reject(rejectWithValue(response?.message || response?.error || 'Failed to delete tracker instance'));
+  }
+});
         });
     }
 );

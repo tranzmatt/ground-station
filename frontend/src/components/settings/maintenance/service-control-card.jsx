@@ -111,27 +111,27 @@ const ServiceControlCard = () => {
         const now = new Date();
         setRequestedAt(now);
 
-        socket.emit('service_control', 'restart_service', null, (response) => {
-            if (response?.status === 'success') {
-                setCountdown(RESTART_COUNTDOWN_SECONDS);
-                setRestartState('countdown');
-                setStatusMessage(
-                    t('maintenance.restart_accepted', {
-                        defaultValue: 'Restart accepted. Existing connections will terminate. Auto-reload starts in {{seconds}} seconds.',
-                        seconds: RESTART_COUNTDOWN_SECONDS,
-                    })
-                );
-                return;
-            }
-
-            setRestartState('error');
-            setStatusMessage(
-                t('maintenance.restart_failed', {
-                    defaultValue: 'Failed to restart service: {{error}}',
-                    error: response?.error || t('maintenance.unknown_error', { defaultValue: 'unknown error' }),
-                })
-            );
-        });
+        socket.emit("api.call", {
+  cmd: "service.restart_service",
+  data: null
+}, response => {
+  if (response?.status === 'success') {
+    setCountdown(RESTART_COUNTDOWN_SECONDS);
+    setRestartState('countdown');
+    setStatusMessage(t('maintenance.restart_accepted', {
+      defaultValue: 'Restart accepted. Existing connections will terminate. Auto-reload starts in {{seconds}} seconds.',
+      seconds: RESTART_COUNTDOWN_SECONDS
+    }));
+    return;
+  }
+  setRestartState('error');
+  setStatusMessage(t('maintenance.restart_failed', {
+    defaultValue: 'Failed to restart service: {{error}}',
+    error: response?.error || t('maintenance.unknown_error', {
+      defaultValue: 'unknown error'
+    })
+  }));
+});
     };
 
     const statusSeverity = restartState === 'error' ? 'error' : 'warning';

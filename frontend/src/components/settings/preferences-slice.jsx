@@ -24,13 +24,16 @@ export const fetchPreferences = createAsyncThunk(
     'preferences/fetchPreferences',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'fetch-preferences', (response) => {
-                if (response['success']) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue('Could not fetch preferences'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'fetch-preferences',
+  data: null
+}, response => {
+  if (response['success']) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue('Could not fetch preferences'));
+  }
+});
         });
     }
 );
@@ -41,13 +44,16 @@ export const updatePreferences = createAsyncThunk(
     async ({ socket }, {getState, rejectWithValue}) => {
         return new Promise((resolve, reject) => {
             const preferences = getState().preferences;
-            socket.emit('data_submission', 'update-preferences', [...preferences.preferences], (response) => {
-                if (response['success']) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue('Failed to set preferences'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'update-preferences',
+  data: [...preferences.preferences]
+}, response => {
+  if (response['success']) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue('Failed to set preferences'));
+  }
+});
         });
     }
 );

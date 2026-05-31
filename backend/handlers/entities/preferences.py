@@ -134,9 +134,9 @@ def register_handlers(registry):
     """Register preference handlers with the command registry."""
     registry.register_batch(
         {
-            "fetch-preferences": (fetch_preferences, "data_request"),
-            "update-preferences": (update_preferences, "data_submission"),
-            "get-map-settings": (get_map_settings, "data_request"),
-            "set-map-settings": (set_map_settings, "data_submission"),
+            "fetch-preferences": (fetch_preferences, "api_call"),
+            "update-preferences": (update_preferences, "api_call"),
+            "get-map-settings": (get_map_settings, "api_call"),
+            "set-map-settings": (set_map_settings, "api_call"),
         }
     )

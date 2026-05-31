@@ -320,33 +320,33 @@ const AppSettingsForm = () => {
         setLoading(true);
         setLoadError('');
 
-        socket.emit('data_request', 'get-app-config', null, (response) => {
-            if (!response?.success) {
-                const errorMessage = response?.error || 'Failed to load application settings';
-                setLoadError(errorMessage);
-                setLoading(false);
-                return;
-            }
-
-            const nextPayload = response.data || {};
-            const nextDraft = buildDraftFromPayload(nextPayload);
-            const nextSensitive = {};
-
-            (nextPayload.fields || []).forEach((field) => {
-                if (field.sensitive) {
-                    nextSensitive[field.key] = false;
-                }
-            });
-
-            setPayload(nextPayload);
-            setDraft(nextDraft);
-            setSavedDraft(nextDraft);
-            setVisibleSensitive(nextSensitive);
-            setValidationErrors({});
-            setSaveResult(null);
-            setLoadError('');
-            setLoading(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'get-app-config',
+  data: null
+}, response => {
+  if (!response?.success) {
+    const errorMessage = response?.error || 'Failed to load application settings';
+    setLoadError(errorMessage);
+    setLoading(false);
+    return;
+  }
+  const nextPayload = response.data || {};
+  const nextDraft = buildDraftFromPayload(nextPayload);
+  const nextSensitive = {};
+  (nextPayload.fields || []).forEach(field => {
+    if (field.sensitive) {
+      nextSensitive[field.key] = false;
+    }
+  });
+  setPayload(nextPayload);
+  setDraft(nextDraft);
+  setSavedDraft(nextDraft);
+  setVisibleSensitive(nextSensitive);
+  setValidationErrors({});
+  setSaveResult(null);
+  setLoadError('');
+  setLoading(false);
+});
     }, [socket]);
 
     useEffect(() => {
@@ -389,40 +389,40 @@ const AppSettingsForm = () => {
         setValidationErrors({});
         setSaveResult(null);
 
-        socket.emit('data_submission', 'update-app-config', { values: updates }, (response) => {
-            if (!response?.success) {
-                const nextValidationErrors = response?.data?.validation_errors || {};
-                const errorMessage = response?.error || 'Failed to save application settings';
-                setValidationErrors(nextValidationErrors);
-                toast.error(errorMessage);
-                setSaving(false);
-                return;
-            }
-
-            const nextPayload = response.data || {};
-            const nextDraft = buildDraftFromPayload(nextPayload);
-            setPayload(nextPayload);
-            setDraft(nextDraft);
-            setSavedDraft(nextDraft);
-            setValidationErrors({});
-
-            const changed = nextPayload.changed_keys || [];
-            if (changed.length > 0) {
-                toast.success(
-                    t('app_settings.save_success', {
-                        defaultValue: 'Application settings were saved.',
-                    })
-                );
-            }
-
-            setSaveResult({
-                changedKeys: changed,
-                changedHotKeys: nextPayload.changed_hot_keys || [],
-                changedRestartKeys: nextPayload.changed_restart_keys || [],
-                restartRequired: Boolean(nextPayload.restart_required),
-            });
-            setSaving(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'update-app-config',
+  data: {
+    values: updates
+  }
+}, response => {
+  if (!response?.success) {
+    const nextValidationErrors = response?.data?.validation_errors || {};
+    const errorMessage = response?.error || 'Failed to save application settings';
+    setValidationErrors(nextValidationErrors);
+    toast.error(errorMessage);
+    setSaving(false);
+    return;
+  }
+  const nextPayload = response.data || {};
+  const nextDraft = buildDraftFromPayload(nextPayload);
+  setPayload(nextPayload);
+  setDraft(nextDraft);
+  setSavedDraft(nextDraft);
+  setValidationErrors({});
+  const changed = nextPayload.changed_keys || [];
+  if (changed.length > 0) {
+    toast.success(t('app_settings.save_success', {
+      defaultValue: 'Application settings were saved.'
+    }));
+  }
+  setSaveResult({
+    changedKeys: changed,
+    changedHotKeys: nextPayload.changed_hot_keys || [],
+    changedRestartKeys: nextPayload.changed_restart_keys || [],
+    restartRequired: Boolean(nextPayload.restart_required)
+  });
+  setSaving(false);
+});
     };
 
     const renderFieldControl = (field) => {

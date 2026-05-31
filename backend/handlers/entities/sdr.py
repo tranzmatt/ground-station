@@ -14,7 +14,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import crud
 from common.pathguard import resolve_sigmf_meta_path
@@ -112,7 +112,9 @@ def _sanitize_overlap_percent(value, default, field_name, logger):
     return percent
 
 
-async def sdr_data_request_routing(sio, cmd, data, logger, client_id):
+async def sdr_command_routing(
+    sio: Any, cmd: str, data: Dict[str, Any], logger: Any, client_id: str
+) -> Dict[str, Union[bool, None, dict, list, str]]:
 
     async with AsyncSessionLocal() as dbsession:
         reply: Dict[str, Union[bool, None, dict, list, str]] = {"success": False, "data": None}
@@ -880,3 +882,34 @@ def handle_vfo_demodulator_state(vfo_state, session_id, logger):
             if transcription_manager:
                 logger.info(f"Stopping transcription for deactivated VFO {vfo_number}")
                 transcription_manager.stop_transcription(sdr_id, session_id, vfo_number)
+
+
+def _build_sdr_command_handler(command: str):
+    """Create a registry-compatible handler that forwards to the SDR command router."""
+
+    async def _handler(
+        sio: Any, data: Optional[Dict], logger: Any, sid: str
+    ) -> Dict[str, Union[bool, None, dict, list, str]]:
+        return await sdr_command_routing(sio, command, data or {}, logger, sid)
+
+    return _handler
+
+
+def register_handlers(registry):
+    """Register SDR command handlers with the unified command registry."""
+    commands = (
+        "configure-sdr",
+        "start-streaming",
+        "stop-streaming",
+        "start-recording",
+        "stop-recording",
+        "start-audio-recording",
+        "stop-audio-recording",
+        "save-waterfall-snapshot",
+    )
+    registry.register_batch(
+        {
+            f"sdr.{command}": (_build_sdr_command_handler(command), "api_call")
+            for command in commands
+        }
+    )

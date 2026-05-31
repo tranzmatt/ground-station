@@ -333,7 +333,10 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
                         },
                     };
                 }
-                socket.emit('sdr_data', 'configure-sdr', SDRSettings);
+                socket.emit("api.call", {
+  cmd: "sdr.configure-sdr",
+  data: SDRSettings
+});
                 if (SDRSettings.sdrSettings) {
                     dispatch(
                         setSdrSettingsApplied({
@@ -861,29 +864,32 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
         const language = currentVfo?.transcriptionLanguage || 'auto';
         const translateTo = currentVfo?.transcriptionTranslateTo || 'none';
 
-        socket.emit('data_submission', 'toggle-transcription', {
-            vfoNumber,
-            enabled,
-            language,
-            translateTo,
-            provider
-        }, (response) => {
-            if (response.success) {
-                // Update VFO state in Redux - update enabled flag and provider
-                dispatch(setVFOProperty({
-                    vfoNumber,
-                    updates: {
-                        transcriptionEnabled: enabled,
-                        transcriptionProvider: provider
-                    }
-                }));
+        socket.emit("api.call", {
+  cmd: 'toggle-transcription',
+  data: {
+    vfoNumber,
+    enabled,
+    language,
+    translateTo,
+    provider
+  }
+}, response => {
+  if (response.success) {
+    // Update VFO state in Redux - update enabled flag and provider
+    dispatch(setVFOProperty({
+      vfoNumber,
+      updates: {
+        transcriptionEnabled: enabled,
+        transcriptionProvider: provider
+      }
+    }));
 
-                // Update transcription active state in Redux
-                dispatch(setTranscriptionActive(enabled));
-            } else {
-                toast.error(t('vfo.transcription_error', `Failed to toggle transcription: ${response.error}`));
-            }
-        });
+    // Update transcription active state in Redux
+    dispatch(setTranscriptionActive(enabled));
+  } else {
+    toast.error(t('vfo.transcription_error', `Failed to toggle transcription: ${response.error}`));
+  }
+});
     }, [dispatch, socket, t, vfoMarkers]);
 
     const handleVFOTabChange = useCallback((newValue) => {
@@ -1121,7 +1127,10 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
                     fftAveraging: fftAveraging,
                     recordingPath: recordingPath,
                 };
-                socket.emit('sdr_data', 'configure-sdr', SDRSettings);
+                socket.emit("api.call", {
+  cmd: "sdr.configure-sdr",
+  data: SDRSettings
+});
 
                 // Now fetch SDR parameters after configure-sdr has set the recording path
                 setTimeout(() => {
@@ -1140,32 +1149,40 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
         // Playback accordion play button handles full configuration and start
         if (!isStreaming && selectedSDRId === 'sigmf-playback' && playbackRecordingPath) {
             // First configure the SDR with playback recording
-            socket.emit('sdr_data', 'configure-sdr', {
-                selectedSDRId: 'sigmf-playback',
-                centerFrequency,
-                sampleRate,
-                gain,
-                fftSize,
-                biasT,
-                tunerAgc,
-                rtlAgc,
-                fftWindow,
-                fftOverlapPercent,
-                fftOverlapDepth,
-                antenna: selectedAntenna,
-                offsetFrequency: selectedOffsetValue,
-                soapyAgc,
-                fftAveraging,
-                recordingPath: playbackRecordingPath,
-            }, (response) => {
-                if (response['success']) {
-                    // Then start streaming
-                    socket.emit('sdr_data', 'start-streaming', { selectedSDRId: 'sigmf-playback' });
-                    dispatch(setPlaybackStartTime(new Date().toISOString()));
-                } else {
-                    toast.error('Failed to configure playback: ' + (response['message'] || 'Unknown error'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: "sdr.configure-sdr",
+  data: {
+    selectedSDRId: 'sigmf-playback',
+    centerFrequency,
+    sampleRate,
+    gain,
+    fftSize,
+    biasT,
+    tunerAgc,
+    rtlAgc,
+    fftWindow,
+    fftOverlapPercent,
+    fftOverlapDepth,
+    antenna: selectedAntenna,
+    offsetFrequency: selectedOffsetValue,
+    soapyAgc,
+    fftAveraging,
+    recordingPath: playbackRecordingPath
+  }
+}, response => {
+  if (response['success']) {
+    // Then start streaming
+    socket.emit("api.call", {
+  cmd: "sdr.start-streaming",
+  data: {
+    selectedSDRId: 'sigmf-playback'
+  }
+});
+    dispatch(setPlaybackStartTime(new Date().toISOString()));
+  } else {
+    toast.error('Failed to configure playback: ' + (response['message'] || 'Unknown error'));
+  }
+});
         } else if (!playbackRecordingPath) {
             toast.error('Please select a recording first');
         } else if (selectedSDRId !== 'sigmf-playback') {
@@ -1176,7 +1193,12 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
     const handlePlaybackStop = () => {
         // Playback accordion stop button only stops playback streaming
         if (isStreaming && selectedSDRId === 'sigmf-playback') {
-            socket.emit('sdr_data', 'stop-streaming', { selectedSDRId: 'sigmf-playback' });
+            socket.emit("api.call", {
+  cmd: "sdr.stop-streaming",
+  data: {
+    selectedSDRId: 'sigmf-playback'
+  }
+});
             dispatch(resetPlaybackStartTime());
         }
     };

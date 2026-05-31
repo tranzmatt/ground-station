@@ -25,6 +25,7 @@ from . import tlesources  # noqa: F401
 from . import (
     appsettings,
     celestial,
+    control,
     filebrowser,
     groups,
     hardware,
@@ -56,4 +57,5 @@ __all__ = [
     "systeminfo",
     "sessions",
     "celestial",
+    "control",
 ]

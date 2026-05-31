@@ -48,13 +48,16 @@ export const deleteSatellite = createAsyncThunk(
     async ({socket, noradId}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-satellite', noradId, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to delete satellite'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-satellite',
+  data: noradId
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to delete satellite'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -67,13 +70,16 @@ export const fetchSatellite = createAsyncThunk(
     async ({ socket, noradId }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellite', noradId, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to fetch satellites'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellite',
+  data: noradId
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to fetch satellites'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -86,13 +92,16 @@ export const submitTransmitter = createAsyncThunk(
     async ({socket, transmitterData}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'submit-transmitter', transmitterData, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to submit transmitter'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'submit-transmitter',
+  data: transmitterData
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to submit transmitter'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -105,13 +114,16 @@ export const editTransmitter = createAsyncThunk(
     async ({socket, transmitterData}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'edit-transmitter', transmitterData, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to submit transmitter'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'edit-transmitter',
+  data: transmitterData
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to submit transmitter'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -125,13 +137,16 @@ export const deleteTransmitter = createAsyncThunk(
         try {
             return await new Promise((resolve, reject) => {
                 const data = {'transmitter_id': transmitterId, 'norad_cat_id': satelliteId};
-                socket.emit('data_submission', 'delete-transmitter', data, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to delete transmitter'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-transmitter',
+  data: data
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to delete transmitter'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -147,13 +162,16 @@ export const fetchSatellites = createAsyncThunk(
         }
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellites-for-group-id', satGroupId, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch satellites'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellites-for-group-id',
+  data: satGroupId
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch satellites'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -166,13 +184,16 @@ export const fetchSatelliteGroups = createAsyncThunk(
     async ({socket}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellite-groups', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch satellite groups'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellite-groups',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch satellite groups'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -185,13 +206,16 @@ export const searchSatellites = createAsyncThunk(
     async ({ socket, keyword }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellite-search', keyword, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to search satellites'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellite-search',
+  data: keyword
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to search satellites'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -207,13 +231,16 @@ export const submitOrEditSatellite = createAsyncThunk(
         delete payload.id;
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', action, payload, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error(response.error || `Failed to ${action === 'edit-satellite' ? 'edit' : 'add'} satellite`));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: action,
+  data: payload
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error(response.error || `Failed to ${action === 'edit-satellite' ? 'edit' : 'add'} satellite`));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

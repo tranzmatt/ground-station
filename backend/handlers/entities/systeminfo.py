@@ -72,10 +72,10 @@ def register_handlers(registry):
     """Register system info handlers with the command registry."""
     registry.register_batch(
         {
-            "fetch_library_versions": (fetch_library_versions, "data_request"),
+            "fetch_library_versions": (fetch_library_versions, "api_call"),
             "fetch_frontend_library_versions": (
                 fetch_frontend_library_versions,
-                "data_request",
+                "api_call",
             ),
         }
     )

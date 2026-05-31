@@ -28,7 +28,16 @@ export const fetchFiles = createAsyncThunk(
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
             // No pagination or sorting params - backend returns all files
-            socket.emit('file_browser', 'list-files', { showRecordings, showSnapshots, showDecoded, showAudio, showTranscriptions });
+            socket.emit("api.call", {
+  cmd: "filebrowser.list-files",
+  data: {
+    showRecordings,
+    showSnapshots,
+    showDecoded,
+    showAudio,
+    showTranscriptions
+  }
+});
 
             // Return pending state - actual data will be updated via socket listener
             return { pending: true };
@@ -45,7 +54,12 @@ export const deleteRecording = createAsyncThunk(
     async ({ socket, name }, { rejectWithValue }) => {
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
-            socket.emit('file_browser', 'delete-recording', { name });
+            socket.emit("api.call", {
+  cmd: "filebrowser.delete-recording",
+  data: {
+    name
+  }
+});
 
             // Return the name for optimistic updates if needed
             return { name, pending: true };
@@ -62,7 +76,12 @@ export const deleteSnapshot = createAsyncThunk(
     async ({ socket, filename }, { rejectWithValue }) => {
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
-            socket.emit('file_browser', 'delete-snapshot', { filename });
+            socket.emit("api.call", {
+  cmd: "filebrowser.delete-snapshot",
+  data: {
+    filename
+  }
+});
 
             // Return the filename for optimistic updates if needed
             return { filename, pending: true };
@@ -79,7 +98,14 @@ export const deleteDecoded = createAsyncThunk(
     async ({ socket, filename, foldername, is_folder }, { rejectWithValue }) => {
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
-            socket.emit('file_browser', 'delete-decoded', { filename, foldername, is_folder });
+            socket.emit("api.call", {
+  cmd: "filebrowser.delete-decoded",
+  data: {
+    filename,
+    foldername,
+    is_folder
+  }
+});
 
             // Return the identifier for optimistic updates if needed
             return { filename, foldername, is_folder, pending: true };
@@ -96,7 +122,12 @@ export const deleteAudio = createAsyncThunk(
     async ({ socket, filename }, { rejectWithValue }) => {
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
-            socket.emit('file_browser', 'delete-audio', { filename });
+            socket.emit("api.call", {
+  cmd: "filebrowser.delete-audio",
+  data: {
+    filename
+  }
+});
 
             // Return the filename for optimistic updates if needed
             return { filename, pending: true };
@@ -113,7 +144,12 @@ export const deleteTranscription = createAsyncThunk(
     async ({ socket, filename }, { rejectWithValue }) => {
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
-            socket.emit('file_browser', 'delete-transcription', { filename });
+            socket.emit("api.call", {
+  cmd: "filebrowser.delete-transcription",
+  data: {
+    filename
+  }
+});
 
             // Return the filename for optimistic updates if needed
             return { filename, pending: true };
@@ -129,7 +165,12 @@ export const deleteBatch = createAsyncThunk(
     async ({ socket, items }, { rejectWithValue }) => {
         try {
             // Emit request without callback - response will come via 'file_browser_state' event
-            socket.emit('file_browser', 'delete-batch', { items });
+            socket.emit("api.call", {
+  cmd: "filebrowser.delete-batch",
+  data: {
+    items
+  }
+});
 
             // Return the items for optimistic updates if needed
             return { items, pending: true };
@@ -145,17 +186,22 @@ export const startBackgroundTask = createAsyncThunk(
     async ({ socket, task_name, args = [], kwargs = {}, name, task_id }, { rejectWithValue }) => {
         try {
             const response = await new Promise((resolve, reject) => {
-                socket.emit(
-                    'background_task:start',
-                    { task_name, args, kwargs, name, task_id },
-                    (result) => {
-                        if (result?.success) {
-                            resolve(result);
-                        } else {
-                            reject(new Error(result?.error || 'Unknown error'));
-                        }
-                    }
-                );
+                socket.emit("api.call", {
+  cmd: "background-task.start",
+  data: {
+    task_name,
+    args,
+    kwargs,
+    name,
+    task_id
+  }
+}, result => {
+  if (result?.success) {
+    resolve(result);
+  } else {
+    reject(new Error(result?.error || 'Unknown error'));
+  }
+});
             });
             return response;
         } catch (error) {

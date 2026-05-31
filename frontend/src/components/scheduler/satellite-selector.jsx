@@ -71,11 +71,14 @@ const SatelliteGroupDropdown = ({ onSatelliteSelect, disabled = false }) => {
 
     useEffect(() => {
         if (socket) {
-            socket.emit('data_request', 'get-satellite-groups', null, (response) => {
-                if (response.success) {
-                    dispatch(setSatGroups(response.data));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellite-groups',
+  data: null
+}, response => {
+  if (response.success) {
+    dispatch(setSatGroups(response.data));
+  }
+});
         }
     }, [socket, dispatch]);
 
@@ -87,11 +90,14 @@ const SatelliteGroupDropdown = ({ onSatelliteSelect, disabled = false }) => {
         dispatch(setSelectedFromSearch(false));
 
         if (socket) {
-            socket.emit('data_request', 'get-satellites-for-group-id', newGroupId, (response) => {
-                if (response.success) {
-                    dispatch(setGroupOfSats(response.data));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellites-for-group-id',
+  data: newGroupId
+}, response => {
+  if (response.success) {
+    dispatch(setGroupOfSats(response.data));
+  }
+});
         }
     };
 
@@ -243,14 +249,17 @@ const SatelliteSearchAutocomplete = ({ onSatelliteSelect, disabled = false, init
     const handleInputChange = (event, newInputValue) => {
         if (newInputValue.length > 2 && socket) {
             dispatch(setSearchLoading(true));
-            socket.emit('data_request', 'get-satellite-search', newInputValue, (response) => {
-                if (response.success) {
-                    dispatch(setSearchOptions(response.data));
-                } else {
-                    dispatch(setSearchOptions([]));
-                }
-                dispatch(setSearchLoading(false));
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellite-search',
+  data: newInputValue
+}, response => {
+  if (response.success) {
+    dispatch(setSearchOptions(response.data));
+  } else {
+    dispatch(setSearchOptions([]));
+  }
+  dispatch(setSearchLoading(false));
+});
         }
     };
 
@@ -268,23 +277,26 @@ const SatelliteSearchAutocomplete = ({ onSatelliteSelect, disabled = false, init
 
                 // Step 2: Fetch satellites for that group
                 if (socket) {
-                    socket.emit('data_request', 'get-satellites-for-group-id', firstGroup.id, (response) => {
-                        if (response.success) {
-                            // Step 3: Populate the group satellites
-                            dispatch(setGroupOfSats(response.data));
+                    socket.emit("api.call", {
+  cmd: 'get-satellites-for-group-id',
+  data: firstGroup.id
+}, response => {
+  if (response.success) {
+    // Step 3: Populate the group satellites
+    dispatch(setGroupOfSats(response.data));
 
-                            // Step 4: Now set the selected satellite ID (after group satellites are loaded)
-                            dispatch(setSatelliteId(selectedSatellite.norad_id));
+    // Step 4: Now set the selected satellite ID (after group satellites are loaded)
+    dispatch(setSatelliteId(selectedSatellite.norad_id));
 
-                            // Step 5: Find the satellite from the response (it has group_id)
-                            const satelliteWithGroupId = response.data.find(s => s.norad_id === selectedSatellite.norad_id);
+    // Step 5: Find the satellite from the response (it has group_id)
+    const satelliteWithGroupId = response.data.find(s => s.norad_id === selectedSatellite.norad_id);
 
-                            // Step 6: Call onSatelliteSelect with the satellite that has group_id
-                            if (onSatelliteSelect && satelliteWithGroupId) {
-                                onSatelliteSelect(satelliteWithGroupId);
-                            }
-                        }
-                    });
+    // Step 6: Call onSatelliteSelect with the satellite that has group_id
+    if (onSatelliteSelect && satelliteWithGroupId) {
+      onSatelliteSelect(satelliteWithGroupId);
+    }
+  }
+});
                 } else {
                     // No socket, call callback anyway
                     if (onSatelliteSelect) {

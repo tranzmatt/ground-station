@@ -91,13 +91,16 @@ export const fetchScheduledObservations = createAsyncThunk(
     async ({ socket }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-scheduled-observations', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch scheduled observations'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-scheduled-observations',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch scheduled observations'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -111,13 +114,18 @@ export const fetchSingleObservation = createAsyncThunk(
     async ({ socket, observationId }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-scheduled-observations', { observation_id: observationId }, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch observation'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-scheduled-observations',
+  data: {
+    observation_id: observationId
+  }
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch observation'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -131,13 +139,16 @@ export const createScheduledObservation = createAsyncThunk(
     async ({ socket, observation }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'create-scheduled-observation', observation, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to create scheduled observation'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'create-scheduled-observation',
+  data: observation
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to create scheduled observation'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -151,13 +162,19 @@ export const updateScheduledObservation = createAsyncThunk(
     async ({ socket, id, observation }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'update-scheduled-observation', { id, ...observation }, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to update scheduled observation'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'update-scheduled-observation',
+  data: {
+    id,
+    ...observation
+  }
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to update scheduled observation'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -171,13 +188,18 @@ export const deleteScheduledObservations = createAsyncThunk(
     async ({ socket, ids }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-scheduled-observations', ids, (res) => {
-                    if (res.success) {
-                        resolve({ ids });
-                    } else {
-                        reject(new Error('Failed to delete scheduled observations'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-scheduled-observations',
+  data: ids
+}, res => {
+  if (res.success) {
+    resolve({
+      ids
+    });
+  } else {
+    reject(new Error('Failed to delete scheduled observations'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -191,13 +213,22 @@ export const toggleObservationEnabled = createAsyncThunk(
     async ({ socket, id, enabled }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'toggle-observation-enabled', { id, enabled }, (res) => {
-                    if (res.success) {
-                        resolve({ id, enabled });
-                    } else {
-                        reject(new Error('Failed to toggle observation'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'toggle-observation-enabled',
+  data: {
+    id,
+    enabled
+  }
+}, res => {
+  if (res.success) {
+    resolve({
+      id,
+      enabled
+    });
+  } else {
+    reject(new Error('Failed to toggle observation'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -211,13 +242,18 @@ export const cancelRunningObservation = createAsyncThunk(
     async ({ socket, id }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'cancel-observation', id, (res) => {
-                    if (res.success) {
-                        resolve({ id });
-                    } else {
-                        reject(new Error('Failed to cancel observation'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'cancel-observation',
+  data: id
+}, res => {
+  if (res.success) {
+    resolve({
+      id
+    });
+  } else {
+    reject(new Error('Failed to cancel observation'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -231,13 +267,16 @@ export const fetchMonitoredSatellites = createAsyncThunk(
     async ({ socket }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-monitored-satellites', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch monitored satellites'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-monitored-satellites',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch monitored satellites'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -251,13 +290,16 @@ export const createMonitoredSatellite = createAsyncThunk(
     async ({ socket, satellite }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'create-monitored-satellite', satellite, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error(res.error || 'Failed to create monitored satellite'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'create-monitored-satellite',
+  data: satellite
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error(res.error || 'Failed to create monitored satellite'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -271,13 +313,19 @@ export const updateMonitoredSatelliteAsync = createAsyncThunk(
     async ({ socket, id, satellite }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'update-monitored-satellite', { id, ...satellite }, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error(res.error || 'Failed to update monitored satellite'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'update-monitored-satellite',
+  data: {
+    id,
+    ...satellite
+  }
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error(res.error || 'Failed to update monitored satellite'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -290,13 +338,23 @@ export const fetchSDRParameters = createAsyncThunk(
     'scheduler/fetchSDRParameters',
     async ({ socket, sdrId }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-sdr-parameters', sdrId, (res) => {
-                if (res.success) {
-                    resolve({ sdrId, parameters: res.data, error: null });
-                } else {
-                    reject(rejectWithValue({ sdrId, error: res.error || 'Failed to fetch SDR parameters' }));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-sdr-parameters',
+  data: sdrId
+}, res => {
+  if (res.success) {
+    resolve({
+      sdrId,
+      parameters: res.data,
+      error: null
+    });
+  } else {
+    reject(rejectWithValue({
+      sdrId,
+      error: res.error || 'Failed to fetch SDR parameters'
+    }));
+  }
+});
         });
     }
 );
@@ -307,13 +365,21 @@ export const deleteMonitoredSatellitesAsync = createAsyncThunk(
     async ({ socket, ids, deleteObservations = false }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-monitored-satellites', { ids, deleteObservations }, (res) => {
-                    if (res.success) {
-                        resolve({ ids });
-                    } else {
-                        reject(new Error('Failed to delete monitored satellites'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-monitored-satellites',
+  data: {
+    ids,
+    deleteObservations
+  }
+}, res => {
+  if (res.success) {
+    resolve({
+      ids
+    });
+  } else {
+    reject(new Error('Failed to delete monitored satellites'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -327,13 +393,22 @@ export const toggleMonitoredSatelliteEnabledAsync = createAsyncThunk(
     async ({ socket, id, enabled }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'toggle-monitored-satellite-enabled', { id, enabled }, (res) => {
-                    if (res.success) {
-                        resolve({ id, enabled });
-                    } else {
-                        reject(new Error('Failed to toggle monitored satellite'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'toggle-monitored-satellite-enabled',
+  data: {
+    id,
+    enabled
+  }
+}, res => {
+  if (res.success) {
+    resolve({
+      id,
+      enabled
+    });
+  } else {
+    reject(new Error('Failed to toggle monitored satellite'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -347,18 +422,21 @@ export const fetchNextPassesForScheduler = createAsyncThunk(
     async ({ socket, noradId, hours = 72, minElevation = 0, forceRecalculate = false }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'fetch-next-passes', {
-                    norad_id: noradId,
-                    hours: hours,
-                    min_elevation: minElevation,
-                    force_recalculate: forceRecalculate
-                }, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to fetch passes'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'fetch-next-passes',
+  data: {
+    norad_id: noradId,
+    hours: hours,
+    min_elevation: minElevation,
+    force_recalculate: forceRecalculate
+  }
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to fetch passes'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -372,19 +450,22 @@ export const fetchSatelliteWithTransmitters = createAsyncThunk(
     async ({ socket, satelliteName, noradId }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellite-search', satelliteName, (response) => {
-                    if (response.success && response.data.length > 0) {
-                        // Find the exact satellite by norad_id
-                        const satellite = response.data.find(sat => sat.norad_id === noradId);
-                        if (satellite) {
-                            resolve(satellite);
-                        } else {
-                            reject(new Error('Satellite not found in search results'));
-                        }
-                    } else {
-                        reject(new Error('Failed to fetch satellite'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellite-search',
+  data: satelliteName
+}, response => {
+  if (response.success && response.data.length > 0) {
+    // Find the exact satellite by norad_id
+    const satellite = response.data.find(sat => sat.norad_id === noradId);
+    if (satellite) {
+      resolve(satellite);
+    } else {
+      reject(new Error('Satellite not found in search results'));
+    }
+  } else {
+    reject(new Error('Failed to fetch satellite'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

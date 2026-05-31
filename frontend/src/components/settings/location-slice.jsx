@@ -28,25 +28,23 @@ export const fetchLocationForUserId = createAsyncThunk(
     'location/fetchLocationForUser',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit(
-                'data_request',
-                'get-locations',
-                null,
-                (response) => {
-                    if (response.success) {
-                        if (response.data && response.data.length > 0) {
-                            // Return the first location from the list
-                            resolve(response.data[0]);
-                        } else {
-                            toast.warning('No location found in the backend, please set one');
-                            resolve(null); // or resolve({}) if no data
-                        }
-                    } else {
-                        toast.error('Failed to get location from backend');
-                        reject(rejectWithValue('Failed to get location'));
-                    }
-                }
-            );
+            socket.emit("api.call", {
+  cmd: 'get-locations',
+  data: null
+}, response => {
+  if (response.success) {
+    if (response.data && response.data.length > 0) {
+      // Return the first location from the list
+      resolve(response.data[0]);
+    } else {
+      toast.warning('No location found in the backend, please set one');
+      resolve(null); // or resolve({}) if no data
+    }
+  } else {
+    toast.error('Failed to get location from backend');
+    reject(rejectWithValue('Failed to get location'));
+  }
+});
         });
     }
 );
@@ -62,15 +60,18 @@ export const storeLocation = createAsyncThunk(
                 data.id = locationId;
             }
 
-            socket.emit('data_submission', command, data, (response) => {
-                if (response['success']) {
-                    toast.success('Location set successfully');
-                    resolve(response.data || data);
-                } else {
-                    toast.error('Failed to set location');
-                    reject(rejectWithValue('Failed to set location'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: command,
+  data: data
+}, response => {
+  if (response['success']) {
+    toast.success('Location set successfully');
+    resolve(response.data || data);
+  } else {
+    toast.error('Failed to set location');
+    reject(rejectWithValue('Failed to set location'));
+  }
+});
         });
     }
 );

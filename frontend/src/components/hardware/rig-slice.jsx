@@ -25,13 +25,16 @@ export const fetchRigs = createAsyncThunk(
     async ({socket}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-rigs', null, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to fetch rigs'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-rigs',
+  data: null
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to fetch rigs'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -44,13 +47,16 @@ export const deleteRigs = createAsyncThunk(
     async ({socket, selectedIds}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-rig', selectedIds, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to delete rigs'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-rig',
+  data: selectedIds
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to delete rigs'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -64,14 +70,17 @@ export const submitOrEditRig = createAsyncThunk(
         const action = formValues.id ? 'edit-rig' : 'submit-rig';
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', action, formValues, (response) => {
-                    if (response.success) {
-                        dispatch(setOpenAddDialog(false));
-                        resolve(response.data);
-                    } else {
-                        reject(new Error(`Failed to ${action === 'edit-rig' ? 'edit' : 'add'} rig`));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: action,
+  data: formValues
+}, response => {
+  if (response.success) {
+    dispatch(setOpenAddDialog(false));
+    resolve(response.data);
+  } else {
+    reject(new Error(`Failed to ${action === 'edit-rig' ? 'edit' : 'add'} rig`));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

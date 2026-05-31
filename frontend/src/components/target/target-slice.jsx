@@ -310,13 +310,16 @@ export const sendNudgeCommand = createAsyncThunk(
             tracker_id: trackerId,
         };
         return new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'nudge-rotator', payload, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue("Failed to send nudge command"));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'nudge-rotator',
+  data: payload
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue("Failed to send nudge command"));
+  }
+});
         });
     }
 );
@@ -344,13 +347,19 @@ export const setTargetMapSetting = createAsyncThunk(
         };
 
         return await new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'set-map-settings', {name: key, value: mapSettings}, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue('Failed to set the mapping settings in the backend'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'set-map-settings',
+  data: {
+    name: key,
+    value: mapSettings
+  }
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue('Failed to set the mapping settings in the backend'));
+  }
+});
         });
     }
 );
@@ -360,13 +369,16 @@ export const getTargetMapSettings = createAsyncThunk(
     'targetSatTrack/getTargetMapSettings',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-map-settings', 'target-map-settings', (response) => {
-                if (response.success) {
-                    resolve(response.data['value']);
-                } else {
-                    reject(rejectWithValue("Failed getting the target map settings from backend"));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-map-settings',
+  data: 'target-map-settings'
+}, response => {
+  if (response.success) {
+    resolve(response.data['value']);
+  } else {
+    reject(rejectWithValue("Failed getting the target map settings from backend"));
+  }
+});
         });
     }
 );
@@ -383,13 +395,18 @@ export const getTrackingStateFromBackend = createAsyncThunk(
             return null;
         }
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-tracking-state', { tracker_id: trackerId }, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue("Failed getting tracking state from backend"));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-tracking-state',
+  data: {
+    tracker_id: trackerId
+  }
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue("Failed getting tracking state from backend"));
+  }
+});
         });
     }
 );
@@ -464,35 +481,33 @@ export const setTrackingStateInBackend = createAsyncThunk(
             commandScope = TRACKER_COMMAND_SCOPES.TARGET;
         }
         return new Promise((resolve, reject) => {
-            socket.emit('data_submission', 'set-tracking-state', trackState, (response) => {
-                if (response.success) {
-                    const trackingState = response?.data?.value || response?.data || data;
-                    const commandId = response?.data?.command_id || null;
-                    const resolvedScope = response?.data?.command_scope || commandScope;
-                    const resolvedTrackerId = resolveTrackerId(
-                        response?.data?.tracker_id,
-                        trackerId,
-                    );
-                    const requestedState = {
-                        rotatorState: response?.data?.requested_state?.rotator_state ?? trackState.value.rotator_state,
-                        rigState: response?.data?.requested_state?.rig_state ?? trackState.value.rig_state,
-                    };
-                    resolve({
-                        trackingState,
-                        commandId,
-                        commandScope: resolvedScope,
-                        requestedState,
-                        trackerId: resolvedTrackerId,
-                    });
-                } else {
-                    reject(
-                        rejectWithValue({
-                            ...(response || {}),
-                            message: response?.message || response?.error || 'Failed updating tracking state',
-                        })
-                    );
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'set-tracking-state',
+  data: trackState
+}, response => {
+  if (response.success) {
+    const trackingState = response?.data?.value || response?.data || data;
+    const commandId = response?.data?.command_id || null;
+    const resolvedScope = response?.data?.command_scope || commandScope;
+    const resolvedTrackerId = resolveTrackerId(response?.data?.tracker_id, trackerId);
+    const requestedState = {
+      rotatorState: response?.data?.requested_state?.rotator_state ?? trackState.value.rotator_state,
+      rigState: response?.data?.requested_state?.rig_state ?? trackState.value.rig_state
+    };
+    resolve({
+      trackingState,
+      commandId,
+      commandScope: resolvedScope,
+      requestedState,
+      trackerId: resolvedTrackerId
+    });
+  } else {
+    reject(rejectWithValue({
+      ...(response || {}),
+      message: response?.message || response?.error || 'Failed updating tracking state'
+    }));
+  }
+});
         });
     }
 );
@@ -506,23 +521,22 @@ export const swapTargetRotatorsInBackend = createAsyncThunk(
             return rejectWithValue({ message: 'trackerAId and trackerBId are required' });
         }
         return new Promise((resolve, reject) => {
-            socket.emit(
-                'data_submission',
-                'swap-target-rotators',
-                { tracker_a_id, tracker_b_id },
-                (response) => {
-                    if (response?.success) {
-                        resolve(response?.data || {});
-                    } else {
-                        reject(
-                            rejectWithValue({
-                                ...(response || {}),
-                                message: response?.message || response?.error || 'Failed swapping rotators',
-                            })
-                        );
-                    }
-                }
-            );
+            socket.emit("api.call", {
+  cmd: 'swap-target-rotators',
+  data: {
+    tracker_a_id,
+    tracker_b_id
+  }
+}, response => {
+  if (response?.success) {
+    resolve(response?.data || {});
+  } else {
+    reject(rejectWithValue({
+      ...(response || {}),
+      message: response?.message || response?.error || 'Failed swapping rotators'
+    }));
+  }
+});
         });
     }
 );
@@ -532,17 +546,20 @@ export const fetchNextPasses = createAsyncThunk(
     'targetSatTrack/fetchNextPasses',
     async ({socket, noradId, hours, forceRecalculate = false}, {getState, rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'fetch-next-passes', {
-                'norad_id': noradId,
-                'hours': hours,
-                'force_recalculate': forceRecalculate
-            }, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue("Failed getting next passes"));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'fetch-next-passes',
+  data: {
+    'norad_id': noradId,
+    'hours': hours,
+    'force_recalculate': forceRecalculate
+  }
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue("Failed getting next passes"));
+  }
+});
         });
     }
 );
@@ -561,21 +578,22 @@ export const fetchFleetPassSummaries = createAsyncThunk(
             : [];
 
         return new Promise((resolve, reject) => {
-            socket.emit(
-                'data_request',
-                'fetch-next-pass-summary-for-trackers',
-                {
-                    trackers: normalizedTrackers,
-                    hours,
-                },
-                (response) => {
-                    if (response?.success) {
-                        resolve(response?.data || { summaries: {}, computed_at_ms: Date.now() });
-                    } else {
-                        reject(rejectWithValue(response?.message || "Failed getting fleet pass summaries"));
-                    }
-                }
-            );
+            socket.emit("api.call", {
+  cmd: 'fetch-next-pass-summary-for-trackers',
+  data: {
+    trackers: normalizedTrackers,
+    hours
+  }
+}, response => {
+  if (response?.success) {
+    resolve(response?.data || {
+      summaries: {},
+      computed_at_ms: Date.now()
+    });
+  } else {
+    reject(rejectWithValue(response?.message || "Failed getting fleet pass summaries"));
+  }
+});
         });
     }
 );
@@ -585,13 +603,16 @@ export const fetchSatelliteGroups = createAsyncThunk(
     'targetSatTrack/fetchSatelliteGroups',
     async ({ socket }, { rejectWithValue }) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'get-satellite-groups', null, (response) => {
-                if (response.success) {
-                    resolve(response.data);
-                } else {
-                    reject(rejectWithValue(response.message));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'get-satellite-groups',
+  data: null
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(rejectWithValue(response.message));
+  }
+});
         });
     }
 );
@@ -604,14 +625,19 @@ export const fetchSatellitesByGroupId = createAsyncThunk(
             return rejectWithValue('Missing group id for target satellites fetch');
         }
         return new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellites-for-group-id', groupId, (response) => {
-                if (response.success) {
-                    const satellites = response.data;
-                    resolve({ satellites });
-                } else {
-                    reject(rejectWithValue(response.message));
-                }
-            });
+                socket.emit("api.call", {
+  cmd: 'get-satellites-for-group-id',
+  data: groupId
+}, response => {
+  if (response.success) {
+    const satellites = response.data;
+    resolve({
+      satellites
+    });
+  } else {
+    reject(rejectWithValue(response.message));
+  }
+});
         });
     }
 );
@@ -622,13 +648,16 @@ export const fetchSatellite = createAsyncThunk(
     async ({ socket, noradId }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-satellite', noradId, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to fetch satellites'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-satellite',
+  data: noradId
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to fetch satellites'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

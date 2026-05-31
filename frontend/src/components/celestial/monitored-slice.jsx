@@ -19,13 +19,16 @@ export const fetchMonitoredCelestial = createAsyncThunk(
     async ({ socket }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-monitored-celestial', null, (response) => {
-                    if (response?.success) {
-                        resolve((response.data || []).map(normalizeMonitoredEntry));
-                    } else {
-                        reject(new Error(response?.error || 'Failed to fetch monitored celestial targets'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-monitored-celestial',
+  data: null
+}, response => {
+  if (response?.success) {
+    resolve((response.data || []).map(normalizeMonitoredEntry));
+  } else {
+    reject(new Error(response?.error || 'Failed to fetch monitored celestial targets'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -38,25 +41,23 @@ export const createMonitoredCelestial = createAsyncThunk(
     async ({ socket, entry }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit(
-                    'data_submission',
-                    'create-monitored-celestial',
-                    {
-                        target_type: entry.targetType || 'mission',
-                        display_name: entry.displayName,
-                        command: entry.targetType === 'mission' ? entry.command : null,
-                        body_id: entry.targetType === 'body' ? entry.bodyId : null,
-                        enabled: entry.enabled ?? true,
-                        source_mode: entry.sourceMode || 'catalog',
-                    },
-                    (response) => {
-                        if (response?.success) {
-                            resolve(normalizeMonitoredEntry(response.data));
-                        } else {
-                            reject(new Error(response?.error || 'Failed to create monitored celestial target'));
-                        }
-                    },
-                );
+                socket.emit("api.call", {
+  cmd: 'create-monitored-celestial',
+  data: {
+    target_type: entry.targetType || 'mission',
+    display_name: entry.displayName,
+    command: entry.targetType === 'mission' ? entry.command : null,
+    body_id: entry.targetType === 'body' ? entry.bodyId : null,
+    enabled: entry.enabled ?? true,
+    source_mode: entry.sourceMode || 'catalog'
+  }
+}, response => {
+  if (response?.success) {
+    resolve(normalizeMonitoredEntry(response.data));
+  } else {
+    reject(new Error(response?.error || 'Failed to create monitored celestial target'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -69,26 +70,24 @@ export const updateMonitoredCelestial = createAsyncThunk(
     async ({ socket, entry }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit(
-                    'data_submission',
-                    'update-monitored-celestial',
-                    {
-                        id: entry.id,
-                        target_type: entry.targetType || 'mission',
-                        display_name: entry.displayName,
-                        command: entry.targetType === 'mission' ? entry.command : null,
-                        body_id: entry.targetType === 'body' ? entry.bodyId : null,
-                        color: entry.color ?? null,
-                        enabled: entry.enabled,
-                    },
-                    (response) => {
-                        if (response?.success) {
-                            resolve(normalizeMonitoredEntry(response.data));
-                        } else {
-                            reject(new Error(response?.error || 'Failed to update monitored celestial target'));
-                        }
-                    },
-                );
+                socket.emit("api.call", {
+  cmd: 'update-monitored-celestial',
+  data: {
+    id: entry.id,
+    target_type: entry.targetType || 'mission',
+    display_name: entry.displayName,
+    command: entry.targetType === 'mission' ? entry.command : null,
+    body_id: entry.targetType === 'body' ? entry.bodyId : null,
+    color: entry.color ?? null,
+    enabled: entry.enabled
+  }
+}, response => {
+  if (response?.success) {
+    resolve(normalizeMonitoredEntry(response.data));
+  } else {
+    reject(new Error(response?.error || 'Failed to update monitored celestial target'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -101,13 +100,18 @@ export const deleteMonitoredCelestial = createAsyncThunk(
     async ({ socket, ids }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-monitored-celestial', { ids }, (response) => {
-                    if (response?.success) {
-                        resolve(ids);
-                    } else {
-                        reject(new Error(response?.error || 'Failed to delete monitored celestial target(s)'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-monitored-celestial',
+  data: {
+    ids
+  }
+}, response => {
+  if (response?.success) {
+    resolve(ids);
+  } else {
+    reject(new Error(response?.error || 'Failed to delete monitored celestial target(s)'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -120,18 +124,22 @@ export const toggleMonitoredCelestialEnabled = createAsyncThunk(
     async ({ socket, id, enabled }, { rejectWithValue }) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit(
-                    'data_submission',
-                    'toggle-monitored-celestial-enabled',
-                    { id, enabled },
-                    (response) => {
-                        if (response?.success) {
-                            resolve({ id, enabled });
-                        } else {
-                            reject(new Error(response?.error || 'Failed to toggle monitored celestial target'));
-                        }
-                    },
-                );
+                socket.emit("api.call", {
+  cmd: 'toggle-monitored-celestial-enabled',
+  data: {
+    id,
+    enabled
+  }
+}, response => {
+  if (response?.success) {
+    resolve({
+      id,
+      enabled
+    });
+  } else {
+    reject(new Error(response?.error || 'Failed to toggle monitored celestial target'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

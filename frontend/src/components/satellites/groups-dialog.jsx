@@ -39,18 +39,21 @@ export function AutocompleteAsync({setSelectedSatelliteCallback}) {
     const search = (keyword) => {
         (async () => {
             setLoading(true);
-            socket.emit("data_request", "get-satellite-search", keyword, (response) => {
-                if (response.success) {
-                    setOptions(response.data);
-                } else {
-                    console.error(response.error);
-                    toast.error(`Error searching for satellites: ${response.error}`, {
-                        autoClose: 5000,
-                    });
-                    setOptions([]);
-                }
-                setLoading(false);
-            });
+            socket.emit("api.call", {
+  cmd: "get-satellite-search",
+  data: keyword
+}, response => {
+  if (response.success) {
+    setOptions(response.data);
+  } else {
+    console.error(response.error);
+    toast.error(`Error searching for satellites: ${response.error}`, {
+      autoClose: 5000
+    });
+    setOptions([]);
+  }
+  setLoading(false);
+});
         })();
     };
 
@@ -144,13 +147,16 @@ export function AddEditDialog({formDialogOpen, handleRowsCallback, handleDialogO
         if (satGroup) {
             // fetch the satellites for the satellite_id set in the satGroup
             if (satGroup.satellite_ids && satGroup.satellite_ids.length > 0) {
-                socket.emit("data_request", "get-satellites", satGroup.satellite_ids, (response) => {
-                    if (response.success) {
-                        setSatellites(response.data);
-                    } else {
-                        console.error(response.error);
-                    }
-                })
+                socket.emit("api.call", {
+  cmd: "get-satellites",
+  data: satGroup.satellite_ids
+}, response => {
+  if (response.success) {
+    setSatellites(response.data);
+  } else {
+    console.error(response.error);
+  }
+})
             }
 
             setFormDialogValues({
@@ -191,19 +197,22 @@ export function AddEditDialog({formDialogOpen, handleRowsCallback, handleDialogO
             };
             successMessage = "Satellite group added successfully";
         }
-        socket.emit("data_submission", cmd, newRow, (response) => {
-            if (response.success === true) {
-                handleRowsCallback(response.data)
-                handleDialogOpenCallback(false);
-                toast.success(successMessage, {
-                    autoClose: 5000,
-                });
-            } else {
-                toast.error("Error adding satellite group", {
-                    autoClose: 5000,
-                });
-            }
-        });
+        socket.emit("api.call", {
+  cmd: cmd,
+  data: newRow
+}, response => {
+  if (response.success === true) {
+    handleRowsCallback(response.data);
+    handleDialogOpenCallback(false);
+    toast.success(successMessage, {
+      autoClose: 5000
+    });
+  } else {
+    toast.error("Error adding satellite group", {
+      autoClose: 5000
+    });
+  }
+});
     };
 
     const setSelectedSatelliteCallback = useCallback((satellite) => {

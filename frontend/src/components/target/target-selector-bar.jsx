@@ -414,17 +414,22 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
         let active = true;
         setCatalogLoading(true);
         setCatalogError('');
-        socket.emit('data_request', 'get-spacecraft-index', { limit: 1000 }, (response) => {
-            if (!active) return;
-            if (response?.success) {
-                setCatalogEntries(Array.isArray(response?.data) ? response.data : []);
-                setCatalogError('');
-            } else {
-                setCatalogEntries([]);
-                setCatalogError(response?.error || 'Failed to load mission catalog.');
-            }
-            setCatalogLoading(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'get-spacecraft-index',
+  data: {
+    limit: 1000
+  }
+}, response => {
+  if (!active) return;
+  if (response?.success) {
+    setCatalogEntries(Array.isArray(response?.data) ? response.data : []);
+    setCatalogError('');
+  } else {
+    setCatalogEntries([]);
+    setCatalogError(response?.error || 'Failed to load mission catalog.');
+  }
+  setCatalogLoading(false);
+});
         return () => {
             active = false;
         };
@@ -444,17 +449,20 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
         let active = true;
         setBodyCatalogLoading(true);
         setBodyCatalogError('');
-        socket.emit('data_request', 'get-celestial-body-catalog', null, (response) => {
-            if (!active) return;
-            if (response?.success) {
-                setBodyCatalogEntries(Array.isArray(response?.data) ? response.data : []);
-                setBodyCatalogError('');
-            } else {
-                setBodyCatalogEntries([]);
-                setBodyCatalogError(response?.error || 'Failed to load celestial body catalog.');
-            }
-            setBodyCatalogLoading(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'get-celestial-body-catalog',
+  data: null
+}, response => {
+  if (!active) return;
+  if (response?.success) {
+    setBodyCatalogEntries(Array.isArray(response?.data) ? response.data : []);
+    setBodyCatalogError('');
+  } else {
+    setBodyCatalogEntries([]);
+    setBodyCatalogError(response?.error || 'Failed to load celestial body catalog.');
+  }
+  setBodyCatalogLoading(false);
+});
         return () => {
             active = false;
         };
@@ -570,15 +578,18 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
             return;
         }
         setCreateSearchLoading(true);
-        socket.emit('data_request', 'get-satellite-search', keyword, (response) => {
-            if (response?.success) {
-                setCreateSearchOptions(Array.isArray(response?.data) ? response.data : []);
-            } else {
-                setCreateSearchOptions([]);
-                toast.error(response?.error || 'Error searching for satellites');
-            }
-            setCreateSearchLoading(false);
-        });
+        socket.emit("api.call", {
+  cmd: 'get-satellite-search',
+  data: keyword
+}, response => {
+  if (response?.success) {
+    setCreateSearchOptions(Array.isArray(response?.data) ? response.data : []);
+  } else {
+    setCreateSearchOptions([]);
+    toast.error(response?.error || 'Error searching for satellites');
+  }
+  setCreateSearchLoading(false);
+});
     }, [socket]);
 
     const buildTargetTrackingPatch = useCallback((target) => {

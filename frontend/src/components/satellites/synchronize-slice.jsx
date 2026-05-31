@@ -30,13 +30,16 @@ export const startSatelliteSync = createAsyncThunk(
                 icon: () => <SatelliteAltIcon />,
             });
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'sync-satellite-data', null, (response) => {
-                    if (response.success === true) {
-                        resolve('Satellite data synchronization initiated');
-                    } else {
-                        reject(response.error);
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'sync-satellite-data',
+  data: null
+}, response => {
+  if (response.success === true) {
+    resolve('Satellite data synchronization initiated');
+  } else {
+    reject(response.error);
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error);
@@ -50,13 +53,16 @@ export const fetchSyncState = createAsyncThunk(
     async ({socket}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'fetch-sync-state', null, (response) => {
-                    if (response.success === true) {
-                        resolve(response.data);
-                    } else {
-                        reject(response.error);
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'fetch-sync-state',
+  data: null
+}, response => {
+  if (response.success === true) {
+    resolve(response.data);
+  } else {
+    reject(response.error);
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error);

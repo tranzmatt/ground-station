@@ -29,7 +29,10 @@ class HandlerRoute:
     """Represents a registered handler route."""
 
     handler: Callable
-    event_type: str  # 'data_request', 'data_submission', 'sdr_data', 'file_browser'
+    event_type: str  # 'api_call' (primary), plus legacy labels retained in existing modules.
+    # Optional metadata reserved for central policy enforcement (authz/accounting).
+    action: str = "unspecified"
+    resource: str = "unspecified"
 
 
 class HandlerRegistry:
@@ -38,7 +41,14 @@ class HandlerRegistry:
     def __init__(self):
         self._routes: Dict[str, HandlerRoute] = {}
 
-    def register(self, command: str, handler: Callable, event_type: str):
+    def register(
+        self,
+        command: str,
+        handler: Callable,
+        event_type: str,
+        action: str = "unspecified",
+        resource: str = "unspecified",
+    ):
         """
         Register a command handler.
 
@@ -47,7 +57,7 @@ class HandlerRegistry:
             handler: Async function to handle the command
             event_type: Type of Socket.IO event this handles
         """
-        self._routes[command] = HandlerRoute(handler, event_type)
+        self._routes[command] = HandlerRoute(handler, event_type, action, resource)
 
     def get_handler(self, command: str) -> Optional[HandlerRoute]:
         """

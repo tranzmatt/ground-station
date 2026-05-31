@@ -238,7 +238,7 @@ def register_handlers(registry):
     """Register decoder configuration handlers with the command registry."""
     registry.register_batch(
         {
-            "get-decoder-config": (get_decoder_config, "data_request"),
-            "get-decoder-configs-batch": (get_decoder_configs_batch, "data_request"),
+            "get-decoder-config": (get_decoder_config, "api_call"),
+            "get-decoder-configs-batch": (get_decoder_configs_batch, "api_call"),
         }
     )

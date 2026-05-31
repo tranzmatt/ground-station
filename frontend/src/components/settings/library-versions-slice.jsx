@@ -23,13 +23,19 @@ export const fetchLibraryVersions = createAsyncThunk(
     'libraryVersions/fetchLibraryVersions',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'fetch_library_versions', null, (response) => {
-                if (response && response.success) {
-                    resolve({ type: 'backend', data: response.data });
-                } else {
-                    reject(rejectWithValue(response?.error || 'Could not fetch library versions'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'fetch_library_versions',
+  data: null
+}, response => {
+  if (response && response.success) {
+    resolve({
+      type: 'backend',
+      data: response.data
+    });
+  } else {
+    reject(rejectWithValue(response?.error || 'Could not fetch library versions'));
+  }
+});
         });
     }
 );
@@ -38,13 +44,19 @@ export const fetchFrontendLibraryVersions = createAsyncThunk(
     'libraryVersions/fetchFrontendLibraryVersions',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
-            socket.emit('data_request', 'fetch_frontend_library_versions', null, (response) => {
-                if (response && response.success) {
-                    resolve({ type: 'frontend', data: response.data });
-                } else {
-                    reject(rejectWithValue(response?.error || 'Could not fetch frontend library versions'));
-                }
-            });
+            socket.emit("api.call", {
+  cmd: 'fetch_frontend_library_versions',
+  data: null
+}, response => {
+  if (response && response.success) {
+    resolve({
+      type: 'frontend',
+      data: response.data
+    });
+  } else {
+    reject(rejectWithValue(response?.error || 'Could not fetch frontend library versions'));
+  }
+});
         });
     }
 );

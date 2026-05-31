@@ -148,7 +148,12 @@ export const useSocketEventHandlers = (socket) => {
             }, 1000);
 
             // Request current background tasks list (in case tasks started before we connected)
-            socket.emit('background_task:list', { filter: 'all' });
+            socket.emit("api.call", {
+  cmd: "background-task.list",
+  data: {
+    filter: 'all'
+  }
+});
 
             // toast.success(
             //     <ToastMessage

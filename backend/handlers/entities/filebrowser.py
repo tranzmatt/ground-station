@@ -25,7 +25,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PIL import Image
 
@@ -1504,3 +1504,40 @@ async def filebrowser_request_routing(sio, cmd, data, logger, sid):
         logger.error(f"Error handling file browser command '{cmd}': {str(e)}")
         logger.exception(e)
         await emit_file_browser_error(sio, str(e), cmd, logger)
+
+
+def _build_filebrowser_command_handler(command: str):
+    """Create a registry-compatible handler for a file-browser command."""
+
+    async def _handler(
+        sio: Any, data: Optional[Dict], logger: Any, sid: str
+    ) -> Dict[str, Union[bool, str]]:
+        reply = await filebrowser_request_routing(sio, command, data, logger, sid)
+        if isinstance(reply, dict):
+            return reply
+        # The file browser mostly communicates via emitted state/error events.
+        return {"success": True}
+
+    return _handler
+
+
+def register_handlers(registry):
+    """Register file browser commands with the unified command registry."""
+    commands = (
+        "list-files",
+        "list-recordings",
+        "get-recording-details",
+        "delete-recording",
+        "list-snapshots",
+        "delete-snapshot",
+        "delete-decoded",
+        "delete-audio",
+        "delete-transcription",
+        "delete-batch",
+    )
+    registry.register_batch(
+        {
+            f"filebrowser.{command}": (_build_filebrowser_command_handler(command), "api_call")
+            for command in commands
+        }
+    )

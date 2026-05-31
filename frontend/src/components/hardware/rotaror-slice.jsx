@@ -27,13 +27,16 @@ export const fetchRotators = createAsyncThunk(
         try {
             // Example: you could wrap socket events with a Promise
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-rotators', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch rotators'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-rotators',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch rotators'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -47,13 +50,16 @@ export const deleteRotators = createAsyncThunk(
         try {
             // Wrap your socket call in a Promise
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-rotator', selectedIds, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to delete rotators'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-rotator',
+  data: selectedIds
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to delete rotators'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -67,14 +73,17 @@ export const submitOrEditRotator = createAsyncThunk(
         const action = formValues.id ? 'edit-rotator' : 'submit-rotator';
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', action, formValues, (response) => {
-                    if (response.success) {
-                        dispatch(setOpenAddDialog(false));
-                        resolve(response.data);
-                    } else {
-                        reject(new Error(`Failed to ${action === 'edit-rotator' ? 'edit' : 'add'} rotator`));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: action,
+  data: formValues
+}, response => {
+  if (response.success) {
+    dispatch(setOpenAddDialog(false));
+    resolve(response.data);
+  } else {
+    reject(new Error(`Failed to ${action === 'edit-rotator' ? 'edit' : 'add'} rotator`));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

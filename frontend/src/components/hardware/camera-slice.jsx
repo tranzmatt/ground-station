@@ -26,13 +26,16 @@ export const fetchCameras = createAsyncThunk(
         try {
             // Example: you could wrap socket events with a Promise
             return await new Promise((resolve, reject) => {
-                socket.emit('data_request', 'get-cameras', null, (res) => {
-                    if (res.success) {
-                        resolve(res.data);
-                    } else {
-                        reject(new Error('Failed to fetch cameras'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'get-cameras',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch cameras'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -46,13 +49,16 @@ export const deleteCameras = createAsyncThunk(
         try {
             // Wrap your socket call in a Promise
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', 'delete-camera', selectedIds, (response) => {
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error('Failed to delete cameras'));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: 'delete-camera',
+  data: selectedIds
+}, response => {
+  if (response.success) {
+    resolve(response.data);
+  } else {
+    reject(new Error('Failed to delete cameras'));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);
@@ -66,14 +72,17 @@ export const submitOrEditCamera = createAsyncThunk(
         const action = formValues.id ? 'edit-camera' : 'submit-camera';
         try {
             return await new Promise((resolve, reject) => {
-                socket.emit('data_submission', action, formValues, (response) => {
-                    if (response.success) {
-                        dispatch(setOpenAddDialog(false));
-                        resolve(response.data);
-                    } else {
-                        reject(new Error(`Failed to ${action === 'edit-camera' ? 'edit' : 'add'} camera`));
-                    }
-                });
+                socket.emit("api.call", {
+  cmd: action,
+  data: formValues
+}, response => {
+  if (response.success) {
+    dispatch(setOpenAddDialog(false));
+    resolve(response.data);
+  } else {
+    reject(new Error(`Failed to ${action === 'edit-camera' ? 'edit' : 'add'} camera`));
+  }
+});
             });
         } catch (error) {
             return rejectWithValue(error.message);

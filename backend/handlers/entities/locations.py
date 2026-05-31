@@ -119,9 +119,9 @@ def register_handlers(registry):
     """Register location handlers with the command registry."""
     registry.register_batch(
         {
-            "get-locations": (get_locations, "data_request"),
-            "submit-location": (submit_location, "data_submission"),
-            "edit-location": (edit_location, "data_submission"),
-            "delete-location": (delete_location, "data_submission"),
+            "get-locations": (get_locations, "api_call"),
+            "submit-location": (submit_location, "api_call"),
+            "edit-location": (edit_location, "api_call"),
+            "delete-location": (delete_location, "api_call"),
         }
     )
