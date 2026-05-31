@@ -211,7 +211,7 @@ async def compiled_satellite_data(dbsession, norad_id: int) -> Dict[str, Any]:
 
     satellite_data: Dict[str, Any] = {
         "details": {},
-        "position": {},
+        # Position is added only after a successful az/el computation.
         "paths": {"past": [], "future": []},
         "coverage": [],
         "transmitters": [],
@@ -336,7 +336,7 @@ def compiled_satellite_data_from_inputs(
     """
     satellite_data: Dict[str, Any] = {
         "details": {},
-        "position": {},
+        # Position is added only after a successful az/el computation.
         "paths": {"past": [], "future": []},
         "coverage": [],
         "transmitters": transmitters or [],

@@ -218,7 +218,8 @@ async def emit_tracker_data(dbsession, sio, logger, tracker_id: str):
                     "norad_id": None,
                     "is_geostationary": False,
                 },
-                "position": {},
+                # Do not emit placeholder position objects here; a blank position
+                # causes clients to clear valid az/el until the next tracker tick.
                 "paths": {"past": [], "future": []},
                 "coverage": [],
                 "transmitters": [],
