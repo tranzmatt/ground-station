@@ -43,7 +43,7 @@ import {
 import NextPassesGroupIsland from "./satellite-passes.jsx";
 import OverviewSatelliteInfoCard from "./satellite-info.jsx";
 import { setRotator, setTrackerId, setTrackingStateInBackend } from "../target/target-slice.jsx";
-import SatelliteMapContainer from './overview-map.jsx';
+import OverviewMapContainer from './overview-map-container.jsx';
 import SatelliteDetailsTable from "./satellites-table.jsx";
 import SatelliteGroupSelectorBar from "./satellite-group-selector-bar.jsx";
 import OverviewPassTimeline from './overview-pass-timeline.jsx';
@@ -488,7 +488,7 @@ const GlobalSatelliteTrackLayout = React.memo(function GlobalSatelliteTrackLayou
     // pre-made ResponsiveGridLayout
     let gridContents = [
         <StyledIslandParent key="map">
-            <SatelliteMapContainer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>
+            <OverviewMapContainer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>
         </StyledIslandParent>,
         <StyledIslandParentNoScrollbar key="passes">
             <NextPassesGroupIsland/>

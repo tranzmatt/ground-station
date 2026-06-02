@@ -77,7 +77,6 @@ import {getSunMoonCoords} from '../common/sunmoon.jsx';
 import {useSocket} from '../common/socket.jsx';
 import {store} from '../common/store.jsx';
 import {CircularProgress, Backdrop} from '@mui/material';
-import MapLibreOverviewMapRenderer from './overview-map-maplibre.jsx';
 
 const viewSatelliteLimit = 100;
 
@@ -1016,14 +1015,4 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     );
 };
 
-const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
-    const mapEngine = useSelector((state) => state.overviewSatTrack?.mapEngine);
-    const normalizedMapEngine = normalizeMapEngine(mapEngine);
-    const Renderer = normalizedMapEngine === 'maplibre'
-        ? MapLibreOverviewMapRenderer
-        : LeafletOverviewMapRenderer;
-
-    return <Renderer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>;
-};
-
-export default SatelliteMapContainer;
+export default LeafletOverviewMapRenderer;

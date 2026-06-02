@@ -107,7 +107,6 @@ import {
     normalizeTargetType,
     resolveTargetDisplayName,
 } from './celestial-target-utils.js';
-import TargetMapMapLibreRenderer from './target-map-maplibre.jsx';
 
 const storageMapZoomValueKey = "target-map-zoom-level";
 const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
@@ -1145,17 +1144,4 @@ const LeafletTargetMapRenderer = ({}) => {
     );
 };
 
-const TargetMapContainer = () => {
-    const mapEngine = useSelector((state) => state.targetSatTrack?.mapEngine);
-    const trackingState = useSelector((state) => state.targetSatTrack?.trackingState || {});
-    const normalizedMapEngine = normalizeMapEngine(mapEngine);
-    const targetType = normalizeTargetType(trackingState);
-
-    if (normalizedMapEngine === 'maplibre' && targetType === 'satellite') {
-        return <TargetMapMapLibreRenderer/>;
-    }
-
-    return <LeafletTargetMapRenderer/>;
-};
-
-export default TargetMapContainer;
+export default LeafletTargetMapRenderer;

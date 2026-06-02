@@ -54,7 +54,7 @@ import {
     satellitePathsSelector,
     satelliteTransmittersSelector
 } from './state-selectors.jsx';
-import TargetMapContainer from './target-map.jsx';
+import TargetMapContainer from './target-map-container.jsx';
 import SatellitePassTimeline from "./timeline-main.jsx";
 import TargetSelectorBar from "./target-selector-bar.jsx";
 import RotatorControl from "../dashboard/rotator-control.jsx";
