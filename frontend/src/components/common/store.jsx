@@ -175,7 +175,7 @@ const targetSatTrackPersistConfig = {
 const overviewSatTrackPersistConfig = {
     key: 'overviewSatTrack',
     storage,
-    whitelist: ['selectedSatGroupId', 'selectedSatelliteId', 'satellitesTableColumnVisibility', 'passesTablePageSize', 'satellitesTablePageSize', 'passesTableSortModel', 'satellitesTableSortModel', 'showGeostationarySatellites', 'mapZoomLevel']
+    whitelist: ['selectedSatGroupId', 'selectedSatelliteId', 'satellitesTableColumnVisibility', 'passesTablePageSize', 'satellitesTablePageSize', 'passesTableSortModel', 'satellitesTableSortModel', 'showGeostationarySatellites', 'mapEngine', 'mapZoomByEngine', 'mapZoomLevel']
 };
 
 // Persist configuration for the dashboard slice
