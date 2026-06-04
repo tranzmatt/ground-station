@@ -5,6 +5,8 @@ import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import { ResetZoomIcon } from '../common/custom-icons.jsx';
 
 const CelestialToolbar = ({
@@ -14,8 +16,12 @@ const CelestialToolbar = ({
     onZoomOut,
     onZoomReset,
     onCenterSun,
+    onToggleFullscreen,
     loading,
     loadingText = '',
+    fullscreen = false,
+    fullscreenLabel = 'Go fullscreen',
+    exitFullscreenLabel = 'Exit fullscreen',
     disabled = false,
 }) => {
     return (
@@ -113,6 +119,19 @@ const CelestialToolbar = ({
                                     sx={{ borderRadius: 0 }}
                                 >
                                     <RefreshIcon />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title={fullscreen ? exitFullscreenLabel : fullscreenLabel}>
+                            <span>
+                                <IconButton
+                                    onClick={onToggleFullscreen}
+                                    disabled={!onToggleFullscreen}
+                                    color="primary"
+                                    sx={{ borderRadius: 0 }}
+                                    aria-label={fullscreen ? exitFullscreenLabel : fullscreenLabel}
+                                >
+                                    {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
                                 </IconButton>
                             </span>
                         </Tooltip>

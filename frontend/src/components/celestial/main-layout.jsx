@@ -56,6 +56,47 @@ const parsePositiveNumber = (value, fallback) => {
     if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
     return Math.min(parsed, MAX_PROJECTION_HOURS);
 };
+const getFullscreenElement = () =>
+    document.fullscreenElement
+    || document.webkitFullscreenElement
+    || document.mozFullScreenElement
+    || document.msFullscreenElement
+    || null;
+const requestFullscreen = (element) => {
+    if (!element) return;
+    if (element.requestFullscreen) {
+        element.requestFullscreen();
+        return;
+    }
+    if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+        return;
+    }
+    if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+        return;
+    }
+    if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+    }
+};
+const exitFullscreen = () => {
+    if (document.exitFullscreen) {
+        document.exitFullscreen();
+        return;
+    }
+    if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+        return;
+    }
+    if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+        return;
+    }
+    if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+    }
+};
 const buildTargetKey = (row) => {
     const explicitKey = String(row?.targetKey || row?.target_key || '').trim();
     if (explicitKey) return explicitKey;
@@ -248,6 +289,8 @@ const CelestialMainLayout = () => {
     const [resetZoomSignal, setResetZoomSignal] = useState(0);
     const [centerSunSignal, setCenterSunSignal] = useState(0);
     const [openSolarSystemLayoutOptionsDialog, setOpenSolarSystemLayoutOptionsDialog] = useState(false);
+    const [solarSystemFullscreen, setSolarSystemFullscreen] = useState(false);
+    const solarSystemViewportRef = React.useRef(null);
 
     const projectionSettings = React.useMemo(() => {
         const mapSettings = celestialState.mapSettings || {};
@@ -289,11 +332,42 @@ const CelestialMainLayout = () => {
         dispatch(fetchCelestialTracks({ socket, payload: sceneRequestPayload }));
     }, [socket, dispatch, sceneRequestPayload]);
 
+    useEffect(() => {
+        // Keep toggle icon state in sync when fullscreen changes via ESC/browser controls.
+        const handleFullscreenChange = () => {
+            const viewportElement = solarSystemViewportRef.current;
+            const fullscreenElement = getFullscreenElement();
+            setSolarSystemFullscreen(Boolean(viewportElement && fullscreenElement === viewportElement));
+        };
+
+        handleFullscreenChange();
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+        };
+    }, []);
+
     const handleRefreshCelestial = React.useCallback(async () => {
         if (!socket) return;
         await dispatch(refreshMonitoredCelestialNow({ socket, payload: sceneRequestPayload }));
         await dispatch(fetchMonitoredCelestial({ socket }));
     }, [socket, dispatch, sceneRequestPayload]);
+    const handleToggleSolarSystemFullscreen = React.useCallback(() => {
+        const viewportElement = solarSystemViewportRef.current;
+        if (!viewportElement) return;
+        const fullscreenElement = getFullscreenElement();
+        if (fullscreenElement === viewportElement) {
+            exitFullscreen();
+            return;
+        }
+        requestFullscreen(viewportElement);
+    }, []);
 
     const handleViewportCommit = React.useCallback((nextViewport) => {
         if (!socket) return;
@@ -403,7 +477,25 @@ const CelestialMainLayout = () => {
 
     const gridContents = [
         <StyledIslandParentNoScrollbar key="solar-system">
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Box
+                ref={solarSystemViewportRef}
+                sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    '&:fullscreen': {
+                        width: '100vw',
+                        height: '100vh',
+                        bgcolor: 'background.paper',
+                    },
+                    '&:-webkit-full-screen': {
+                        width: '100vw',
+                        height: '100vh',
+                        bgcolor: 'background.paper',
+                    },
+                }}
+            >
                 <TitleBar
                     className={getClassNamesBasedOnGridEditing(isEditing, [])}
                     sx={{ ...islandTitleBarSx, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
@@ -433,6 +525,10 @@ const CelestialMainLayout = () => {
                     loading={celestialState.tracksLoading}
                     loadingText={tracksProgressText}
                     disabled={!socket}
+                    onToggleFullscreen={handleToggleSolarSystemFullscreen}
+                    fullscreen={solarSystemFullscreen}
+                    fullscreenLabel={t('map_controls.go_fullscreen', { defaultValue: 'Go fullscreen' })}
+                    exitFullscreenLabel={t('map_controls.exit_fullscreen', { defaultValue: 'Exit fullscreen' })}
                 />
                 <Box sx={{ p: 0, flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
                     {celestialState.error && !hasSolarScene ? (
