@@ -163,6 +163,23 @@ const hasFiniteXYZ = (position) =>
     && Number.isFinite(Number(position[1]))
     && Number.isFinite(Number(position[2]));
 
+const HELIOCENTRIC_ORIGIN_EPSILON_AU = 1e-9;
+const isNearHeliocentricOriginXYZ = (position) => {
+    if (!hasFiniteXYZ(position)) return false;
+    return (
+        Math.abs(Number(position[0])) <= HELIOCENTRIC_ORIGIN_EPSILON_AU
+        && Math.abs(Number(position[1])) <= HELIOCENTRIC_ORIGIN_EPSILON_AU
+        && Math.abs(Number(position[2])) <= HELIOCENTRIC_ORIGIN_EPSILON_AU
+    );
+};
+
+const isRenderableSolarBody = (body) => {
+    const id = String(body?.id || '').trim().toLowerCase();
+    if (id === 'sun') return true;
+    const position = body?.position_xyz_au;
+    return hasFiniteXYZ(position) && !isNearHeliocentricOriginXYZ(position);
+};
+
 const hasFiniteXY = (position) =>
     Array.isArray(position)
     && position.length >= 2
@@ -426,6 +443,10 @@ const SolarSystemCanvas = ({
     }, [compactLanguageLocale, distanceUnit, effectiveLocale]);
 
     const planets = scene?.planets || [];
+    const renderablePlanets = useMemo(
+        () => (Array.isArray(planets) ? planets.filter((body) => isRenderableSolarBody(body)) : []),
+        [planets],
+    );
     const tracked = scene?.celestial || [];
     const hasTrackedRows = Array.isArray(tracked) && tracked.length > 0;
     const selectedTargetKeySet = useMemo(
@@ -436,17 +457,17 @@ const SolarSystemCanvas = ({
     const asteroidZones = scene?.asteroid_zones || [];
     const asteroidResonanceGaps = scene?.asteroid_resonance_gaps || [];
     const moonOrbitRings = useMemo(() => {
-        if (!Array.isArray(planets) || planets.length === 0) return [];
+        if (!Array.isArray(renderablePlanets) || renderablePlanets.length === 0) return [];
 
         const bodyById = new Map();
-        planets.forEach((body) => {
+        renderablePlanets.forEach((body) => {
             const bodyId = String(body?.id || '').trim().toLowerCase();
             if (!bodyId) return;
             bodyById.set(bodyId, body);
         });
 
         const rings = [];
-        planets.forEach((body) => {
+        renderablePlanets.forEach((body) => {
             const bodyId = String(body?.id || '').trim().toLowerCase();
             const bodyType = String(body?.body_type || '').trim().toLowerCase();
             const parentId = String(body?.parent_id || '').trim().toLowerCase();
@@ -482,7 +503,7 @@ const SolarSystemCanvas = ({
             return a.parentId.localeCompare(b.parentId);
         });
         return rings;
-    }, [planets]);
+    }, [renderablePlanets]);
     const effectiveDisplayOptions = {
         ...DEFAULT_DISPLAY_OPTIONS,
         ...(displayOptions || {}),
@@ -545,7 +566,7 @@ const SolarSystemCanvas = ({
         if (rect.width <= 0 || rect.height <= 0) return;
 
         const points = [];
-        planets.forEach((planet) => {
+        renderablePlanets.forEach((planet) => {
             if (Array.isArray(planet.position_xyz_au)) {
                 points.push(planet.position_xyz_au);
             }
@@ -601,7 +622,7 @@ const SolarSystemCanvas = ({
         };
         setViewport(nextViewport);
         commitViewport(nextViewport);
-    }, [planets, tracked, commitViewport]);
+    }, [renderablePlanets, tracked, commitViewport]);
 
     const fitTarget = useCallback((targetKey) => {
         const key = String(targetKey || '').trim();
@@ -746,7 +767,7 @@ const SolarSystemCanvas = ({
         };
         const sceneTimestampUtc = scene?.timestamp_utc || '';
         const solarBodyIds = new Set(
-            (Array.isArray(planets) ? planets : [])
+            (Array.isArray(renderablePlanets) ? renderablePlanets : [])
                 .map((body) => String(body?.id || '').trim().toLowerCase())
                 .filter(Boolean),
         );
@@ -1018,7 +1039,7 @@ const SolarSystemCanvas = ({
 
             // Planet orbits (sampled paths).
             ctx.lineWidth = 1;
-            planets.forEach((planet) => {
+            renderablePlanets.forEach((planet) => {
                 const samples = planet.orbit_samples_xyz_au || [];
                 if (!samples.length) return;
                 const sampleTimesUtc = planet.orbit_sample_times_utc || [];
@@ -1071,7 +1092,7 @@ const SolarSystemCanvas = ({
             // keep body labels on so the scene remains legible.
             const shouldShowBodyLabels = effectiveDisplayOptions.showPlanetLabels || !hasTrackedRows;
             // Planets.
-            planets.forEach((planet) => {
+            renderablePlanets.forEach((planet) => {
                 const id = String(planet.id || '').toLowerCase();
                 const color = PLANET_COLORS[id] || '#bbbbbb';
                 const [sx, sy] = toScreen(planet.position_xyz_au);
@@ -1082,7 +1103,9 @@ const SolarSystemCanvas = ({
                 ctx.fill();
 
                 if (shouldShowBodyLabels) {
-                    drawLabelWithAutoOffset(planet.name || id, sx, sy, theme.palette.text.secondary);
+                    // Keep the Sun label clear of the larger center icon.
+                    const labelAnchorX = id === 'sun' ? sx + 12 : sx;
+                    drawLabelWithAutoOffset(planet.name || id, labelAnchorX, sy, theme.palette.text.secondary);
                 }
             });
         }
@@ -1292,7 +1315,9 @@ const SolarSystemCanvas = ({
             y: cy,
             distanceKm: distanceKmFromViewportCenter(0, 0),
         });
-        const earthPlanet = planets.find((planet) => String(planet?.id || '').trim().toLowerCase() === 'earth');
+        const earthPlanet = renderablePlanets.find(
+            (planet) => String(planet?.id || '').trim().toLowerCase() === 'earth',
+        );
         if (earthPlanet && hasFiniteXYZ(earthPlanet.position_xyz_au)) {
             const [earthX, earthY] = toScreen(earthPlanet.position_xyz_au);
             const earthWorldXAu = Number(earthPlanet.position_xyz_au[0]);
@@ -1323,7 +1348,7 @@ const SolarSystemCanvas = ({
         asteroidResonanceGaps,
         asteroidZones,
         displayOptions,
-        planets,
+        renderablePlanets,
         tracked,
         hasTrackedRows,
         moonOrbitRings,

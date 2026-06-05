@@ -147,3 +147,58 @@ async def test_get_vectors_snapshot_returns_miss_on_fetch_error_without_fallback
     assert result["stale"] is True
     assert result["payload"] is None
     assert "network down" in str(result["error"])
+
+
+@pytest.mark.asyncio
+async def test_build_horizons_solar_system_bodies_keeps_missing_rows_without_origin_vectors(
+    monkeypatch,
+):
+    epoch = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+
+    def _stub_build_builtin_body_targets():
+        return [
+            {
+                "body_id": "saturn",
+                "target_key": "body:saturn",
+                "horizons_command": "699",
+                "name": "Saturn",
+                "body_class": "planet",
+                "parent_body_id": "sun",
+            }
+        ]
+
+    async def _stub_ensure_scene_targets_registered(*_args, **_kwargs):
+        return None
+
+    async def _stub_get_vectors_snapshot(*_args, **_kwargs):
+        return {
+            "payload": None,
+            "cache": "cache-only-miss",
+            "stale": True,
+            "error": "No data returned",
+        }
+
+    monkeypatch.setattr(scene, "_build_builtin_body_targets", _stub_build_builtin_body_targets)
+    monkeypatch.setattr(
+        scene, "_ensure_scene_targets_registered", _stub_ensure_scene_targets_registered
+    )
+    monkeypatch.setattr(scene, "_get_vectors_snapshot", _stub_get_vectors_snapshot)
+
+    solar_meta, planets = await scene._build_horizons_solar_system_bodies(
+        epoch=epoch,
+        past_hours=6,
+        future_hours=6,
+        step_minutes=60,
+        observer_location=None,
+        force_refresh=True,
+        allow_network_fetch=False,
+        logger=_DummyLogger(),
+    )
+
+    assert solar_meta["cache"]["missing_count"] == 1
+    assert len(planets) == 1
+    row = planets[0]
+    assert row["id"] == "saturn"
+    assert row["stale"] is True
+    assert row["position_xyz_au"] is None
+    assert row["velocity_xyz_au_per_day"] is None

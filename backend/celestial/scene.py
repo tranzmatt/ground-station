@@ -687,16 +687,17 @@ async def _build_horizons_solar_system_bodies(
         payload = snapshot.get("payload")
         if not isinstance(payload, dict):
             missing_count += 1
-            # Keep a renderable row even when Horizons is unavailable without
-            # falling back to offline ephemeris approximations.
+            # Keep a body metadata row when Horizons is unavailable. Do not
+            # synthesize origin vectors here: [0,0,0] is the heliocentric Sun
+            # and would create misleading overlap in the solar-system canvas.
             planets.append(
                 {
                     "id": body_id,
                     "name": str(target.get("name") or body_id),
                     "body_type": target.get("body_class") or "body",
                     "parent_id": target.get("parent_body_id"),
-                    "position_xyz_au": [0.0, 0.0, 0.0],
-                    "velocity_xyz_au_per_day": [0.0, 0.0, 0.0],
+                    "position_xyz_au": None,
+                    "velocity_xyz_au_per_day": None,
                     "orbit_samples_xyz_au": [],
                     "source": "horizons",
                     "cache": snapshot.get("cache"),
