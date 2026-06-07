@@ -844,11 +844,15 @@ const SolarSystemCanvas = ({
             };
         };
 
-        const drawLabelWithAutoOffset = (text, anchorX, anchorY, color) => {
+        const drawLabelWithAutoOffset = (text, anchorX, anchorY, color, options = {}) => {
             const label = String(text || '');
             if (!label) return;
+            const labelOffsetX = Number(options?.offsetX);
+            const labelOffsetY = Number(options?.offsetY);
+            const offsetX = Number.isFinite(labelOffsetX) ? labelOffsetX : 6;
+            const offsetY = Number.isFinite(labelOffsetY) ? labelOffsetY : -6;
 
-            const placement = placeLabel(label, anchorX + 6, anchorY - 6);
+            const placement = placeLabel(label, anchorX + offsetX, anchorY + offsetY);
             if (!placement) return;
 
             ctx.save();
@@ -1135,16 +1139,28 @@ const SolarSystemCanvas = ({
                 : isDimmed
                     ? hexToRgba(trackedHexColor, 0.16)
                     : hexToRgba(trackedHexColor, body.stale ? 0.35 : 0.45);
-            ctx.beginPath();
-            samples.forEach((sample, index) => {
-                const [sx, sy] = toScreen(sample);
-                if (index === 0) ctx.moveTo(sx, sy);
-                else ctx.lineTo(sx, sy);
-            });
             ctx.strokeStyle = trackedStrokeColor;
             ctx.lineWidth = isSelected ? 2.2 : 1;
-            ctx.setLineDash([3, 4]);
-            ctx.stroke();
+            const sampleTimesUtc = body.orbit_sample_times_utc || [];
+            const pastSegmentEndIndex = resolvePastSegmentEndIndex(samples, sampleTimesUtc, sceneTimestampUtc);
+            const lastSampleIndex = samples.length - 1;
+            const drawOrbitSegment = (startIndex, endIndex, lineDashPattern) => {
+                if (endIndex - startIndex < 1) return;
+                ctx.beginPath();
+                for (let sampleIndex = startIndex; sampleIndex <= endIndex; sampleIndex += 1) {
+                    const [sx, sy] = toScreen(samples[sampleIndex]);
+                    if (sampleIndex === startIndex) ctx.moveTo(sx, sy);
+                    else ctx.lineTo(sx, sy);
+                }
+                ctx.setLineDash(lineDashPattern);
+                ctx.stroke();
+            };
+            // Keep the timeline split clear in the UI: past samples are solid, future samples are dotted.
+            if (pastSegmentEndIndex >= 1) {
+                drawOrbitSegment(0, pastSegmentEndIndex, []);
+            }
+            const futureSegmentStartIndex = pastSegmentEndIndex >= 1 ? pastSegmentEndIndex : 0;
+            drawOrbitSegment(futureSegmentStartIndex, lastSampleIndex, [3, 4]);
             ctx.setLineDash([]);
 
             // Direction arrows at both endpoints in forward time direction.
@@ -1199,7 +1215,13 @@ const SolarSystemCanvas = ({
                     const labelAnchorX = (isSingleTrackedMode && isSunLabelTarget(body))
                         ? sx + SUN_LABEL_SINGLE_MODE_OFFSET_PX
                         : sx;
-                    drawLabelWithAutoOffset(body.name || body.command || 'object', labelAnchorX, sy, labelColor);
+                    drawLabelWithAutoOffset(
+                        body.name || body.command || 'object',
+                        labelAnchorX,
+                        sy,
+                        labelColor,
+                        isSelected ? { offsetX: 8, offsetY: -4 } : undefined,
+                    );
                 }
             });
         }
