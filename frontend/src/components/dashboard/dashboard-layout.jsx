@@ -1211,7 +1211,11 @@ export default function Layout() {
                 <DialogTitle
                     id="location-setup-dialog-title"
                     sx={{
-                        pb: 0.5,
+                        py: 1.5,
+                        px: 2.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        lineHeight: 1.2,
                         fontSize: '1.35rem',
                         fontWeight: 600,
                         color: 'primary.main',

@@ -1128,19 +1128,15 @@ const LocationPage = ({ wizardMode = false, onWizardCompleted = null }) => {
                 : undefined}
         >
             <Stack spacing={2}>
-                <SettingsSurfaceHeader
-                    title={wizardMode
-                        ? t('location.wizard_title', { defaultValue: 'Ground Station Setup Wizard' })
-                        : t('location.ground_station_location', { defaultValue: 'Ground Station Location' })}
-                    subtitle={wizardMode
-                        ? t('location.wizard_subtitle', {
-                            defaultValue: 'Complete these steps to configure your first ground station.',
-                        })
-                        : t('location.subtitle', {
+                {!wizardMode && (
+                    <SettingsSurfaceHeader
+                        title={t('location.ground_station_location', { defaultValue: 'Ground Station Location' })}
+                        subtitle={t('location.subtitle', {
                             defaultValue: 'Set station coordinates by map selection or geolocation, then save to backend.',
                         })}
-                    status={{ label: statusLabel, color: statusColor }}
-                />
+                        status={{ label: statusLabel, color: statusColor }}
+                    />
+                )}
 
                 {wizardMode ? wizardLocationContent : defaultLocationContent}
             </Stack>
