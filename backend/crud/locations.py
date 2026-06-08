@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Union
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.common import logger, serialize_object
@@ -50,7 +50,8 @@ async def fetch_all_locations(session: AsyncSession) -> dict:
     Fetch all location records.
     """
     try:
-        stmt = select(Locations)
+        # Keep row order deterministic because several subsystems consume the first row.
+        stmt = select(Locations).order_by(Locations.updated.desc(), Locations.added.desc())
         result = await session.execute(stmt)
         locations = result.scalars().all()
         locations = serialize_object(locations)
@@ -67,13 +68,44 @@ async def add_location(session: AsyncSession, data: dict) -> dict:
     Create and add a new location record.
     """
     try:
-        new_id = uuid.uuid4()
         now = datetime.now(timezone.utc)
-        data["id"] = new_id
-        data["added"] = now
-        data["updated"] = now
+        payload = dict(data)
+        payload.pop("id", None)
+        payload.pop("added", None)
+        payload.pop("updated", None)
+        location_name = str(payload.get("name") or "").strip().lower()
 
-        stmt = insert(Locations).values(**data).returning(Locations)
+        # Frontend currently manages a single "home" location.
+        # Treat submit as upsert for this logical singleton to avoid duplicates.
+        if location_name == "home":
+            payload["name"] = "home"
+            existing_home_stmt = (
+                select(Locations)
+                .where(func.lower(Locations.name) == "home")
+                .order_by(Locations.updated.desc(), Locations.added.desc())
+            )
+            existing_home_result = await session.execute(existing_home_stmt)
+            existing_home = existing_home_result.scalar_one_or_none()
+            if existing_home:
+                payload["updated"] = now
+                upd_stmt = (
+                    update(Locations)
+                    .where(Locations.id == existing_home.id)
+                    .values(**payload)
+                    .returning(Locations)
+                )
+                upd_result = await session.execute(upd_stmt)
+                await session.commit()
+                updated_home = upd_result.scalar_one_or_none()
+                updated_home = serialize_object(updated_home)
+                return {"success": True, "data": updated_home, "error": None}
+
+        new_id = uuid.uuid4()
+        payload["id"] = new_id
+        payload["added"] = now
+        payload["updated"] = now
+
+        stmt = insert(Locations).values(**payload).returning(Locations)
 
         result = await session.execute(stmt)
         await session.commit()

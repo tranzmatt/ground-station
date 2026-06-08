@@ -63,15 +63,32 @@ export const storeLocation = createAsyncThunk(
             socket.emit("api.call", {
   cmd: command,
   data: data
-}, response => {
-  if (response['success']) {
-    toast.success('Location set successfully');
-    resolve(response.data || data);
-  } else {
-    toast.error('Failed to set location');
-    reject(rejectWithValue('Failed to set location'));
-  }
-});
+	}, response => {
+	  if (response['success']) {
+	    if (response.data && response.data.id) {
+	      toast.success('Location set successfully');
+	      resolve(response.data);
+	      return;
+	    }
+
+	    // Defensive fallback for older backend replies that omit the saved row.
+	    socket.emit("api.call", {
+	  cmd: 'get-locations',
+	  data: null
+	}, fetchResponse => {
+	  if (fetchResponse.success && fetchResponse.data && fetchResponse.data.length > 0) {
+	    toast.success('Location set successfully');
+	    resolve(fetchResponse.data[0]);
+	  } else {
+	    toast.error('Failed to set location');
+	    reject(rejectWithValue('Failed to set location'));
+	  }
+	});
+	  } else {
+	    toast.error('Failed to set location');
+	    reject(rejectWithValue('Failed to set location'));
+	  }
+	});
         });
     }
 );

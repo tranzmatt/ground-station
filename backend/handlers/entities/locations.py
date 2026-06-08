@@ -64,7 +64,11 @@ async def submit_location(
         if add_reply.get("success"):
             for manager in get_all_tracker_managers().values():
                 await manager.notify_locations_changed()
-        return {"success": add_reply["success"], "data": None}
+        return {
+            "success": add_reply["success"],
+            "data": add_reply.get("data"),
+            "error": add_reply.get("error"),
+        }
 
 
 async def edit_location(
@@ -88,7 +92,11 @@ async def edit_location(
         if edit_reply.get("success"):
             for manager in get_all_tracker_managers().values():
                 await manager.notify_locations_changed()
-        return {"success": edit_reply["success"], "data": None}
+        return {
+            "success": edit_reply["success"],
+            "data": edit_reply.get("data"),
+            "error": edit_reply.get("error"),
+        }
 
 
 async def delete_location(
