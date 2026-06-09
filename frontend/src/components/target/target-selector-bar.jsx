@@ -1806,7 +1806,11 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
                                 const shortName = option.targetName.length > 20
                                     ? `${option.targetName.slice(0, 20)}...`
                                     : option.targetName;
-                                const trackerLabel = Number.isFinite(Number(option.targetNumber))
+                                const normalizedTargetNumber = Number(option.targetNumber);
+                                const hasTargetNumber = option.targetNumber != null
+                                    && Number.isFinite(normalizedTargetNumber)
+                                    && normalizedTargetNumber > 0;
+                                const trackerLabel = hasTargetNumber
                                     ? `T${option.targetNumber}`
                                     : (option.isObservationTracker ? 'OBS' : 'T?');
                                 const targetIdTooltip = option.targetType === TARGET_TYPES.SATELLITE
