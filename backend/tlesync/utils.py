@@ -975,6 +975,8 @@ async def update_satellite_group_with_removal_detection(
 
     if existing_group:
         # Update the existing group
+        # Keep system-group display name aligned with the current orbital source name.
+        existing_group.name = group_name
         existing_group.satellite_ids = normalize_satellite_ids(satellite_ids)
         existing_group.updated = datetime.now(timezone.utc)
         logger.info(f"Updated satellite group '{group_name}' with {len(satellite_ids)} satellites")

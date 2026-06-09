@@ -21,7 +21,9 @@ from datetime import datetime, timezone
 
 import pytest
 import requests
+from sqlalchemy import select
 
+from db.models import Groups, SatelliteGroupType
 from tlesync.utils import (
     create_final_success_message,
     create_initial_sync_state,
@@ -38,6 +40,7 @@ from tlesync.utils import (
     resolve_sync_source_urls,
     simple_parse_3le,
     sync_fetch,
+    update_satellite_group_with_removal_detection,
 )
 
 
@@ -272,6 +275,46 @@ class TestNormalizeSatelliteIds:
 
     def test_normalize_satellite_ids_rejects_invalid_value(self):
         assert normalize_satellite_ids("not-json") == []
+
+
+@pytest.mark.asyncio
+class TestUpdateSatelliteGroupWithRemovalDetection:
+    """Test system-group updates during orbital-source synchronization."""
+
+    async def test_existing_group_name_updates_when_source_name_changes(self, db_session):
+        existing_group = Groups(
+            name="Old Source Name",
+            identifier="source-identifier-1",
+            type=SatelliteGroupType.SYSTEM,
+            satellite_ids=[25544],
+        )
+        db_session.add(existing_group)
+        await db_session.commit()
+
+        class MockLogger:
+            def info(self, msg):
+                pass
+
+        removed = await update_satellite_group_with_removal_detection(
+            session=db_session,
+            tle_source_identifier="source-identifier-1",
+            satellite_ids=[25544, 43017],
+            group_name="Renamed Source Name",
+            logger=MockLogger(),
+        )
+        await db_session.commit()
+
+        result = await db_session.execute(
+            select(Groups).filter_by(
+                identifier="source-identifier-1",
+                type=SatelliteGroupType.SYSTEM,
+            )
+        )
+        updated_group = result.scalar_one()
+
+        assert updated_group.name == "Renamed Source Name"
+        assert updated_group.satellite_ids == [25544, 43017]
+        assert removed == {"satellites": [], "transmitters": []}
 
 
 class TestGetSatelliteByNoradId:
