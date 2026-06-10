@@ -92,6 +92,17 @@ const SECTION_DEFS = [
         ],
     },
     {
+        title: 'Astronomy Background',
+        subtitle: 'Reference layers behind the map.',
+        options: [
+            {
+                key: 'showStarfieldBackground',
+                label: 'Show bright-star field',
+                description: 'Render a vector ecliptic projection from the Bright Star Catalogue.',
+            },
+        ],
+    },
+    {
         title: 'Guides and Metadata',
         subtitle: 'Contextual markers, labels, and scene metadata.',
         options: [
