@@ -53,7 +53,7 @@ import {
     satellitePathsSelector,
     satelliteTransmittersSelector
 } from './state-selectors.jsx';
-import TargetMapContainer from './target-map-container.jsx';
+import TargetViewRouter from './target-view-router.jsx';
 import SatellitePassTimeline from "./timeline-main.jsx";
 import TargetSelectorBar from "./target-selector-bar.jsx";
 import RotatorControl from "../dashboard/rotator-control.jsx";
@@ -646,7 +646,7 @@ const TrackingLayout = React.memo(function TrackingLayout() {
     // pre-make the components
     let gridContents = [
         <StyledIslandParent key="map">
-            <TargetMapContainer/>
+            <TargetViewRouter/>
         </StyledIslandParent>,
         <StyledIslandParentScrollbar key="info">
             <TargetInfoIsland/>

@@ -106,7 +106,7 @@ const ToggleRowWithDescription = ({ label, description, checked, onChange }) => 
     </Box>
 );
 
-function TargetCelestialViewSettingsDialog({ updateBackend }) {
+function TargetSkyViewSettingsDialog({ updateBackend }) {
     const dispatch = useDispatch();
     const { t } = useTranslation('target');
     const {
@@ -297,4 +297,4 @@ function TargetCelestialViewSettingsDialog({ updateBackend }) {
     );
 }
 
-export default TargetCelestialViewSettingsDialog;
+export default TargetSkyViewSettingsDialog;

@@ -88,8 +88,7 @@ import {
 } from "../common/common.jsx";
 import TargetNumberIcon from '../common/target-number-icon.jsx';
 import { useTooltipOrientation } from '../common/tooltip-orientation.js';
-import MapSettingsIslandDialog from './map-settings-dialog.jsx';
-import TargetCelestialViewSettingsDialog from './target-celestial-view-settings-dialog.jsx';
+import TargetMapSettingsDialog from './target-map-settings-dialog.jsx';
 import CoordinateGrid from "../common/mercator-grid.jsx";
 import createTerminatorLine from "../common/terminator-line.jsx";
 import {getSunMoonCoords} from "../common/sunmoon.jsx";
@@ -452,7 +451,7 @@ const TargetAttributionBar = React.memo(function TargetAttributionBar({ htmlStri
     );
 });
 
-const LeafletTargetMapRenderer = ({}) => {
+const TargetMapCompositeView = ({}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
     const { t } = useTranslation('target');
@@ -460,7 +459,9 @@ const LeafletTargetMapRenderer = ({}) => {
     const {
         groupId,
         trackerId,
+        trackerViews,
         satelliteId: noradId,
+        rotatorData,
         showPastOrbitPath,
         showFutureOrbitPath,
         showSatelliteCoverage,
@@ -535,6 +536,12 @@ const LeafletTargetMapRenderer = ({}) => {
     const celestialState = useSelector((state) => state.celestial || {});
     const monitoredRows = useSelector((state) => state.celestialMonitored?.monitored || []);
     const {location} = useSelector(state => state.location);
+    const scopedTrackerView = useMemo(
+        () => (trackerId ? trackerViews?.[trackerId] || null : null),
+        [trackerId, trackerViews]
+    );
+    const effectiveTrackingState = scopedTrackerView?.trackingState || trackingState || {};
+    const effectiveRotatorData = scopedTrackerView?.rotatorData || rotatorData || {};
     const isSatelliteTarget = targetType === 'satellite';
     const missionCommand = String(trackingState?.command || '').trim();
     const bodyId = String(trackingState?.body_id || '').trim().toLowerCase();
@@ -578,6 +585,22 @@ const LeafletTargetMapRenderer = ({}) => {
     const [currentSatellitesPosition, setCurrentSatellitesPosition] = useState([]);
     const [currentSatellitesCoverage, setCurrentSatellitesCoverage] = useState([]);
     const [currentCrosshairs, setCurrentCrosshairs] = useState([]);
+    const planetariumRotatorCrosshair = useMemo(() => {
+        const az = Number(effectiveRotatorData?.az);
+        const el = Number(effectiveRotatorData?.el);
+        const connected = effectiveRotatorData?.connected === true;
+        const tracking = effectiveRotatorData?.tracking === true
+            || String(effectiveTrackingState?.rotator_state || '').trim().toLowerCase() === 'tracking';
+        if (!connected || !tracking) return null;
+        if (!Number.isFinite(az) || !Number.isFinite(el)) return null;
+        return { visible: true, az, el };
+    }, [
+        effectiveRotatorData?.az,
+        effectiveRotatorData?.el,
+        effectiveRotatorData?.connected,
+        effectiveRotatorData?.tracking,
+        effectiveTrackingState?.rotator_state,
+    ]);
     const clearRenderedSatelliteLayers = useCallback(() => {
         setCurrentPastSatellitesPaths([]);
         setCurrentFutureSatellitesPaths([]);
@@ -1070,12 +1093,10 @@ const LeafletTargetMapRenderer = ({}) => {
                         </Box>
                     </Box>
                 </TitleBar>
-                <TargetCelestialViewSettingsDialog
-                    updateBackend={(overrides) => {
-                        const key = 'target-map-settings';
-                        dispatch(setTargetMapSetting({socket, key: key, overrides}));
-                    }}
-                />
+                <TargetMapSettingsDialog updateBackend={() => {
+                    const key = 'target-map-settings';
+                    dispatch(setTargetMapSetting({socket, key}));
+                }}/>
                 <CelestialToolbar
                     onFitAll={() => setNonSatelliteFitAllSignal((value) => value + 1)}
                     onZoomIn={() => setNonSatelliteZoomInSignal((value) => value + 1)}
@@ -1106,6 +1127,7 @@ const LeafletTargetMapRenderer = ({}) => {
                                     scene={nonSatelliteScene}
                                     selectedTargetKeys={nonSatelliteTargetKey ? [nonSatelliteTargetKey] : []}
                                     focusTargetKey={nonSatelliteTargetKey}
+                                    rotatorCrosshair={planetariumRotatorCrosshair}
                                     enableMapDragging={targetViewEnableDragging}
                                     enableMapZooming={targetViewEnableZooming}
                                     fitAllSignal={nonSatelliteFitAllSignal}
@@ -1240,7 +1262,7 @@ const LeafletTargetMapRenderer = ({}) => {
                     </Box>
                 ) : null}
 
-                <MapSettingsIslandDialog updateBackend={() => {
+                <TargetMapSettingsDialog updateBackend={() => {
                     const key = 'target-map-settings';
                     dispatch(setTargetMapSetting({socket, key: key}));
                 }}/>
@@ -1311,4 +1333,4 @@ const LeafletTargetMapRenderer = ({}) => {
     );
 };
 
-export default LeafletTargetMapRenderer;
+export default TargetMapCompositeView;
