@@ -119,6 +119,11 @@ const buildMapZoomByEngine = (mapZoomByEngine, mapEngine, legacyMapZoomLevel) =>
     };
 };
 
+const hasCustomZoomState = (mapZoomByEngine) => (
+    parseFiniteZoom(mapZoomByEngine?.[MAP_ENGINE_LEAFLET]) !== defaultMapZoomByEngine[MAP_ENGINE_LEAFLET]
+    || parseFiniteZoom(mapZoomByEngine?.[MAP_ENGINE_MAPLIBRE]) !== defaultMapZoomByEngine[MAP_ENGINE_MAPLIBRE]
+);
+
 const resolveCompatibleTileLayerId = (tileLayerID, mapEngine) => {
     const normalizedMapEngine = normalizeMapEngine(mapEngine);
     const normalizedTileLayerID = String(tileLayerID || 'satellite');
@@ -675,11 +680,12 @@ const earthViewSlice = createSlice({
                     );
                     const payloadMapZoomByEngine = action.payload['mapZoomByEngine'];
                     let nextMapZoomByEngine = currentMapZoomByEngine;
+                    const keepPersistedReduxZoom = hasCustomZoomState(currentMapZoomByEngine);
 
-                    // Prefer explicit per-engine zooms from backend.
-                    // Legacy single-value backend zooms are intentionally ignored to avoid
-                    // reintroducing historical Leaflet/MapLibre offset drift on refresh.
-                    if (payloadMapZoomByEngine && typeof payloadMapZoomByEngine === 'object') {
+                    // Keep persisted Redux zoom whenever the user has already customized it.
+                    // Backend zoom values can lag behind because map zoom is not auto-saved on every zoom event.
+                    // For fresh/default local state, still accept explicit per-engine zoom values from backend.
+                    if (!keepPersistedReduxZoom && payloadMapZoomByEngine && typeof payloadMapZoomByEngine === 'object') {
                         nextMapZoomByEngine = buildMapZoomByEngine(
                             payloadMapZoomByEngine,
                             mapEngine,
