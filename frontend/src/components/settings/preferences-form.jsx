@@ -59,13 +59,16 @@ import {
     SettingsSurfaceHeader,
 } from './shared/index.js';
 
-const EDITABLE_KEYS = [
+const USER_EDITABLE_KEYS = [
     'timezone',
     'locale',
     'language',
     'theme',
     'celestial_enabled',
     'toast_position',
+];
+
+const SYSTEM_EDITABLE_KEYS = [
     'stadia_maps_api_key',
     'gemini_api_key',
     'deepgram_api_key',
@@ -149,11 +152,11 @@ const PreferenceFieldHeading = ({ title, subtitle }) => (
     </Typography>
 );
 
-const normalizePreferences = (preferences) => {
-    const result = Object.fromEntries(EDITABLE_KEYS.map((key) => [key, '']));
+const normalizePreferences = (preferences, editableKeys) => {
+    const result = Object.fromEntries(editableKeys.map((key) => [key, '']));
 
     preferences.forEach((pref) => {
-        if (EDITABLE_KEYS.includes(pref.name)) {
+        if (editableKeys.includes(pref.name)) {
             result[pref.name] = pref.value ?? '';
         }
     });
@@ -229,12 +232,22 @@ const SecretsField = ({
 const PreferencesForm = ({ mode = 'preferences' }) => {
     const { socket } = useSocket();
     const dispatch = useDispatch();
-    const { preferences, status } = useSelector((state) => state.preferences);
-    const isLoading = status === 'loading';
+    const { userPreferences, status } = useSelector(
+        (state) => state.preferences
+    );
     const { t, i18n } = useTranslation('settings');
+    const isIntegrationsMode = mode === 'integrations';
+    const activePreferences = userPreferences;
+    const activeKeys = useMemo(
+        () => (isIntegrationsMode ? SYSTEM_EDITABLE_KEYS : [...USER_EDITABLE_KEYS, ...SYSTEM_EDITABLE_KEYS]),
+        [isIntegrationsMode]
+    );
+    const isLoading = status === 'loading';
 
-    const [draft, setDraft] = useState(() => normalizePreferences(preferences));
-    const [savedSnapshot, setSavedSnapshot] = useState(() => normalizePreferences(preferences));
+    const [draft, setDraft] = useState(() => normalizePreferences(activePreferences, activeKeys));
+    const [savedSnapshot, setSavedSnapshot] = useState(() =>
+        normalizePreferences(activePreferences, activeKeys)
+    );
     const [initialized, setInitialized] = useState(false);
     const [reloading, setReloading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -245,7 +258,6 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
         deepgram_api_key: false,
         google_translate_api_key: false,
     });
-    const isIntegrationsMode = mode === 'integrations';
 
     const timezoneOptions = useMemo(
         () => tz.names().map((zone) => ({ name: zone.replace('_', ' '), value: zone })),
@@ -267,13 +279,14 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
     );
 
     const isDirty = useMemo(() => {
-        return EDITABLE_KEYS.some((key) => (draft[key] ?? '') !== (savedSnapshot[key] ?? ''));
-    }, [draft, savedSnapshot]);
+        return activeKeys.some((key) => (draft[key] ?? '') !== (savedSnapshot[key] ?? ''));
+    }, [activeKeys, draft, savedSnapshot]);
 
-    const themeChanged = (draft.theme ?? '') !== (savedSnapshot.theme ?? '');
+    const themeChanged =
+        !isIntegrationsMode && (draft.theme ?? '') !== (savedSnapshot.theme ?? '');
 
     useEffect(() => {
-        const normalized = normalizePreferences(preferences);
+        const normalized = normalizePreferences(activePreferences, activeKeys);
 
         if (!initialized) {
             setDraft(normalized);
@@ -286,7 +299,7 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
             setDraft(normalized);
             setSavedSnapshot(normalized);
         }
-    }, [preferences, initialized, isDirty, isSaving]);
+    }, [activeKeys, activePreferences, initialized, isDirty, isSaving]);
 
     const handleDraftChange = (name, value) => {
         setDraft((prev) => ({ ...prev, [name]: value }));
@@ -312,16 +325,18 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
         setIsSaving(true);
 
         try {
-            EDITABLE_KEYS.forEach((key) => {
+            activeKeys.forEach((key) => {
                 dispatch(setPreference({ name: key, value: draft[key] ?? '' }));
             });
 
             await dispatch(updatePreferences({ socket })).unwrap();
             setSavedSnapshot(draft);
 
-            const languageCode = (draft.language || 'en_US').split('_')[0];
-            if (i18n.language !== languageCode) {
-                await i18n.changeLanguage(languageCode);
+            if (!isIntegrationsMode) {
+                const languageCode = (draft.language || 'en_US').split('_')[0];
+                if (i18n.language !== languageCode) {
+                    await i18n.changeLanguage(languageCode);
+                }
             }
 
             toast.success(t('preferences.save_success'));
@@ -561,7 +576,7 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
                             </>
                         ) : null}
 
-                        {isIntegrationsMode ? (
+                        {
                             <SettingsSection
                                 title={t('preferences.integration_section_title', { defaultValue: 'Integration' })}
                                 description={t('preferences.integration_section_help', {
@@ -779,7 +794,7 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
                                     </Grid>
                                 </Grid>
                             </SettingsSection>
-                        ) : null}
+                        }
 
                         <SettingsActionFooter
                             statusText={saveStatusText}
