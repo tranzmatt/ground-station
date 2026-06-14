@@ -6,6 +6,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 import { storageStatePath } from './auth-state.js';
+import { E2E_ADMIN_PASSWORD } from './auth-constants.js';
 
 const SETUP_COORDINATES = {
   latitude: '37.9838',
@@ -102,12 +103,12 @@ test.describe('Setup Wizard', () => {
     await nextButton.click();
     await expect(setupDialog.getByText(/password must be at least 8 characters long/i)).toBeVisible();
 
-    await setupDialog.getByLabel(/^password\b/i).fill('GroundStation#123');
+    await setupDialog.getByLabel(/^password\b/i).fill(E2E_ADMIN_PASSWORD);
     await setupDialog.getByLabel(/confirm password/i).fill('GroundStation#456');
     await nextButton.click();
     await expect(setupDialog.getByText(/passwords do not match/i)).toBeVisible();
 
-    await setupDialog.getByLabel(/confirm password/i).fill('GroundStation#123');
+    await setupDialog.getByLabel(/confirm password/i).fill(E2E_ADMIN_PASSWORD);
     await nextButton.click();
     await expect(setupDialog.getByRole('heading', { name: /^station identity$/i })).toBeVisible();
 
@@ -124,7 +125,7 @@ test.describe('Setup Wizard', () => {
     const setupDialog = await openSetupWizard(page);
 
     const wizardUsername = `wizard-admin-${Date.now()}`;
-    const wizardPassword = 'GroundStation#123';
+    const wizardPassword = E2E_ADMIN_PASSWORD;
 
     await advanceToReviewStep(page, setupDialog, {
       username: wizardUsername,
@@ -139,7 +140,13 @@ test.describe('Setup Wizard', () => {
       // validation internals.
       if (failNextSetupAdmin) {
         failNextSetupAdmin = false;
-        await route.abort('failed');
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            detail: 'Injected admin creation failure for E2E retry coverage.',
+          }),
+        });
         return;
       }
       await route.continue();

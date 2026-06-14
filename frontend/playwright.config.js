@@ -56,7 +56,17 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['setup-wizard'],
-      testIgnore: '**/setup-wizard.spec.js',
+      testIgnore: ['**/setup-wizard.spec.js', '**/auth.spec.js'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: storageStatePath,
+      },
+    },
+    {
+      name: 'auth-flow',
+      dependencies: ['chromium'],
+      testMatch: '**/auth.spec.js',
+      workers: 1,
       use: {
         ...devices['Desktop Chrome'],
         storageState: storageStatePath,
