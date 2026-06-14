@@ -159,14 +159,14 @@ test.describe('Setup Wizard', () => {
     await saveAndContinueButton.click();
 
     await expect(setupDialog.getByText(/setup checklist/i)).toBeVisible({ timeout: 30000 });
-    await expect(setupDialog.getByText(/background task status/i)).toBeVisible();
-    await expect(setupDialog.getByText(/orbital data sync/i)).toBeVisible();
-    await expect(setupDialog.getByText(/soapysdr detection/i)).toBeVisible();
+    await expect(setupDialog.getByText(/^background task status$/i)).toBeVisible();
+    await expect(setupDialog.getByText(/^orbital data sync$/i)).toBeVisible();
+    await expect(setupDialog.getByText(/^soapysdr detection$/i)).toBeVisible();
 
-    await expect(setupDialog).toContainText(/location submission/i);
-    await expect(setupDialog).toContainText(/location submission[\s\S]*done/i);
-    await expect(setupDialog).toContainText(/admin user creation/i);
-    await expect(setupDialog).toContainText(/admin user creation[\s\S]*failed/i);
+    await expect(setupDialog).toContainText(/identity and location setup/i);
+    await expect(setupDialog).toContainText(/identity and location setup[\s\S]*done/i);
+    await expect(setupDialog).toContainText(/administrator account created/i);
+    await expect(setupDialog).toContainText(/administrator account created[\s\S]*failed/i);
 
     const completeSetupButton = setupDialog.getByRole('button', { name: /^complete setup$/i });
     await expect(completeSetupButton).toBeDisabled();
@@ -178,8 +178,8 @@ test.describe('Setup Wizard', () => {
     await saveAndContinueButton.click();
 
     await expect(setupDialog.getByText(/setup checklist/i)).toBeVisible({ timeout: 30000 });
-    await expect(setupDialog).toContainText(/admin user creation/i);
-    await expect(setupDialog).toContainText(/admin user creation[\s\S]*done/i);
+    await expect(setupDialog).toContainText(/administrator account created/i);
+    await expect(setupDialog).toContainText(/administrator account created[\s\S]*done/i);
     await expect(completeSetupButton).toBeEnabled({ timeout: 30000 });
 
     await completeSetupButton.click();

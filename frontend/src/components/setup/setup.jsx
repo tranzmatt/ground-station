@@ -1291,7 +1291,8 @@ const SetupWizard = ({
                                 borderRadius: 5,
                                 bgcolor: (theme) =>
                                     alpha(
-                                        theme.palette[getStatusTone(orbitalSyncUiState.color).bg].main,
+                                        theme.palette[getStatusTone(orbitalSyncUiState.color).bg]?.main
+                                            || theme.palette.grey[500],
                                         theme.palette.mode === 'dark' ? 0.18 : 0.12
                                     ),
                             }}
@@ -1337,7 +1338,8 @@ const SetupWizard = ({
                                 borderRadius: 5,
                                 bgcolor: (theme) =>
                                     alpha(
-                                        theme.palette[getStatusTone(soapyUiState.color).bg].main,
+                                        theme.palette[getStatusTone(soapyUiState.color).bg]?.main
+                                            || theme.palette.grey[500],
                                         theme.palette.mode === 'dark' ? 0.18 : 0.12
                                     ),
                             }}
