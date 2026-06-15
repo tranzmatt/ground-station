@@ -44,15 +44,10 @@ _setup_cache: Dict[str, Any] = {"value": True, "expires_at": 0.0}
 
 setup_allowed_commands = {
     "get-locations",
-    "submit-location",
-    "edit-location",
-    "database-backup.full_restore",
-    # Setup finalization starts and tracks background initialization tasks
-    # before the first admin account is created.
-    "background-task.start",
-    "background-task.list",
-    "sync-satellite-data",
-    "fetch-sync-state",
+    # Setup mode exposes only setup-scoped commands until the first admin exists.
+    "setup.restore",
+    "setup.finalize",
+    "setup.status",
 }
 
 # Commands that can significantly alter global system state are admin-only.

@@ -18,6 +18,7 @@ from handlers.entities import (
     scheduler,
     sdr,
     sessions,
+    setup,
     systeminfo,
     tracking,
     transmitters,
@@ -39,6 +40,7 @@ def _register_all_handlers():
     hardware.register_handlers(handler_registry)
     locations.register_handlers(handler_registry)
     preferences.register_handlers(handler_registry)
+    setup.register_handlers(handler_registry)
     transmitters.register_handlers(handler_registry)
     tracking.register_handlers(handler_registry)
     vfo.register_handlers(handler_registry)

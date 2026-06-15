@@ -123,3 +123,15 @@ def test_operator_cannot_run_admin_only_commands():
     assert auth.is_command_allowed_for_role("update-system-preferences", "operator") is False
     assert auth.is_command_allowed_for_role("update-app-config", "operator") is False
     assert auth.is_command_allowed_for_role("database-backup.full_backup", "operator") is False
+
+
+def test_setup_mode_only_allows_setup_scoped_commands():
+    assert auth.is_command_allowed_during_setup("get-locations") is True
+    assert auth.is_command_allowed_during_setup("setup.restore") is True
+    assert auth.is_command_allowed_during_setup("setup.finalize") is True
+    assert auth.is_command_allowed_during_setup("setup.status") is True
+
+    assert auth.is_command_allowed_during_setup("background-task.start") is False
+    assert auth.is_command_allowed_during_setup("background-task.list") is False
+    assert auth.is_command_allowed_during_setup("sync-satellite-data") is False
+    assert auth.is_command_allowed_during_setup("database-backup.full_restore") is False

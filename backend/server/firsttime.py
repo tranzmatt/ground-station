@@ -40,27 +40,31 @@ async def first_time_initialization():
 
             logger.info("FIRSTTIME - Populating database with default data...")
             # Add default orbital sources
+            # TEMPORARY (2026-06-15): CelesTrak defaults are disabled to reduce
+            # first-run request volume and avoid provider throttling/bans.
+            # TODO: Re-enable the CelesTrak sources below once request strategy
+            # is adjusted (staggering/backoff/caching) and provider limits are respected.
             default_sources = [
-                (
-                    "Cubesats",
-                    "https://celestrak.org/NORAD/elements/gp.php?GROUP=cubesat&FORMAT=omm",
-                    "omm",
-                ),
-                (
-                    "Amateur",
-                    "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=omm",
-                    "omm",
-                ),
-                (
-                    "Space stations",
-                    "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=omm",
-                    "omm",
-                ),
-                (
-                    "Weather",
-                    "https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=omm",
-                    "omm",
-                ),
+                # (
+                #     "Cubesats",
+                #     "https://celestrak.org/NORAD/elements/gp.php?GROUP=cubesat&FORMAT=omm",
+                #     "omm",
+                # ),
+                # (
+                #     "Amateur",
+                #     "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=omm",
+                #     "omm",
+                # ),
+                # (
+                #     "Space stations",
+                #     "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=omm",
+                #     "omm",
+                # ),
+                # (
+                #     "Weather",
+                #     "https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=omm",
+                #     "omm",
+                # ),
                 (
                     "TinyGS",
                     "https://api.tinygs.com/v1/tinygs_supported.txt",
@@ -86,8 +90,8 @@ async def first_time_initialization():
 
             await session.commit()
             logger.info(
-                "Initial data populated successfully with default orbital sources: "
-                "Cubesats, Amateur, Space stations, Weather, TinyGS."
+                "Initial data populated successfully with default orbital sources: TinyGS. "
+                "CelesTrak defaults are temporarily disabled."
             )
 
         except Exception as e:

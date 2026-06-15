@@ -1166,6 +1166,25 @@ const LocationPage = ({
         }),
         [stationCallsignLabel, stationHorizonMask, stationName, stationType]
     );
+    const wizardSetupLocationPayload = React.useMemo(() => {
+        if (!hasLocation || !location) {
+            return null;
+        }
+
+        const payload = {
+            lat: Number(location.lat),
+            lon: Number(location.lon),
+            alt: Number(altitude || 0),
+            name: normalizeStationName(location.name || 'home') || 'home',
+            callsign: normalizeCallsign(location.callsign || '') || null,
+            station_type: normalizeStationType(location.station_type),
+            horizon_mask: normalizeHorizonMask(location.horizon_mask),
+        };
+        if (locationId != null) {
+            payload.id = locationId;
+        }
+        return payload;
+    }, [altitude, hasLocation, location, locationId]);
 
     return (
         <SettingsSurface
@@ -1203,6 +1222,7 @@ const LocationPage = ({
                         canSave={canSave}
                         isDifferentFromSaved={isDifferentFromSaved}
                         locationSaving={locationSaving}
+                        setupLocationPayload={wizardSetupLocationPayload}
                         onPersistLocation={handleSetLocation}
                         onWizardCompleted={onWizardCompleted}
                         stationIdentitySection={stationIdentitySection}
