@@ -1445,49 +1445,59 @@ export default function SDRsPage() {
                                     : alpha(theme.palette.common.black, 0.02),
                         }}
                     >
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 0.75 }}>
+                    <Box
+                        sx={{
+                            mb: 0.75,
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 1,
+                        }}
+                    >
                         <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
                             {t('sdr.discovery_task', 'Discovery Task')}
                         </Typography>
-                        {activeSoapyDiscoveryTask ? (
-                            activeSoapyDiscoveryTask.status === 'running' ? (
-                                <Chip
-                                    size="small"
-                                    color="info"
-                                    icon={<PendingActionsIcon />}
-                                    label={t('sdr.task_running', 'Running')}
-                                />
-                            ) : activeSoapyDiscoveryTask.status === 'completed' ? (
-                                <Chip
-                                    size="small"
-                                    color="success"
-                                    icon={<CheckCircleOutlineIcon />}
-                                    label={t('sdr.task_completed', 'Completed')}
-                                />
-                            ) : activeSoapyDiscoveryTask.status === 'failed' ? (
-                                <Chip
-                                    size="small"
-                                    color="error"
-                                    icon={<ErrorOutlineIcon />}
-                                    label={t('sdr.task_failed', 'Failed')}
-                                />
-                            ) : (
-                                <Chip
-                                    size="small"
-                                    color="warning"
-                                    icon={<CancelIcon />}
-                                    label={t('sdr.task_stopped', 'Stopped')}
-                                />
-                            )
-                        ) : (
-                            <Chip size="small" variant="outlined" label={t('sdr.task_idle', 'Idle')} />
-                        )}
                         {activeSoapyDiscoveryTask ? (
                             <Typography variant="caption" color="text.secondary">
                                 {`${t('sdr.duration', 'Duration')}: ${formatTaskDuration(discoveryTaskDurationMs)}`}
                             </Typography>
                         ) : null}
-                    </Stack>
+                        <Box sx={{ ml: 'auto' }}>
+                            {activeSoapyDiscoveryTask ? (
+                                activeSoapyDiscoveryTask.status === 'running' ? (
+                                    <Chip
+                                        size="small"
+                                        color="info"
+                                        icon={<PendingActionsIcon />}
+                                        label={t('sdr.task_running', 'Running')}
+                                    />
+                                ) : activeSoapyDiscoveryTask.status === 'completed' ? (
+                                    <Chip
+                                        size="small"
+                                        color="success"
+                                        icon={<CheckCircleOutlineIcon />}
+                                        label={t('sdr.task_completed', 'Completed')}
+                                    />
+                                ) : activeSoapyDiscoveryTask.status === 'failed' ? (
+                                    <Chip
+                                        size="small"
+                                        color="error"
+                                        icon={<ErrorOutlineIcon />}
+                                        label={t('sdr.task_failed', 'Failed')}
+                                    />
+                                ) : (
+                                    <Chip
+                                        size="small"
+                                        color="warning"
+                                        icon={<CancelIcon />}
+                                        label={t('sdr.task_stopped', 'Stopped')}
+                                    />
+                                )
+                            ) : (
+                                <Chip size="small" variant="outlined" label={t('sdr.task_idle', 'Idle')} />
+                            )}
+                        </Box>
+                    </Box>
 
                     {activeSoapyDiscoveryTask ? (
                         <Box>
