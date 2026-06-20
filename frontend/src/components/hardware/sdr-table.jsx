@@ -228,8 +228,8 @@ const normalizeAntennaLabels = (labels) => {
         const cleanEntries = {};
         Object.entries(directionLabels).forEach(([internalName, userLabel]) => {
             const key = String(internalName || '').trim();
-            const value = String(userLabel || '').trim();
-            if (!key || !value) return;
+            const value = String(userLabel || '');
+            if (!key || !value.trim()) return;
             cleanEntries[key] = value.slice(0, MAX_ANTENNA_LABEL_LENGTH);
         });
 
@@ -581,9 +581,10 @@ export default function SDRsPage() {
         const normalizedLabels = normalizeAntennaLabels(formValues.antenna_labels);
         const nextLabels = { ...normalizedLabels };
         const directionLabels = { ...(nextLabels[direction] || {}) };
-        const label = String(rawLabel || '').slice(0, MAX_ANTENNA_LABEL_LENGTH).trim();
+        // Keep user spacing while editing; only use trimmed text to detect empty labels.
+        const label = String(rawLabel || '').slice(0, MAX_ANTENNA_LABEL_LENGTH);
 
-        if (!label) {
+        if (!label.trim()) {
             delete directionLabels[portName];
         } else {
             directionLabels[portName] = label;
