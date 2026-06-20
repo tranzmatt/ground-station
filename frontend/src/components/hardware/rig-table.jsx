@@ -177,11 +177,7 @@ export default function RigTable() {
 
     return (
         <Paper elevation={3} sx={{padding: 2, marginTop: 0, borderRadius: 0}}>
-            <Alert severity="info">
-                <AlertTitle>{t('rig.title')}</AlertTitle>
-                {t('rig.subtitle')}
-            </Alert>
-            <Box component="form" sx={{mt: 2}}>
+            <Box component="form">
                 <Box sx={{width: '100%'}}>
                     <DataGrid
                         loading={loading}
@@ -446,6 +442,10 @@ export default function RigTable() {
                     </Dialog>
                 </Box>
             </Box>
+            <Alert severity="info" sx={{ mt: 2 }}>
+                <AlertTitle>{t('rig.title')}</AlertTitle>
+                {t('rig.subtitle')}
+            </Alert>
         </Paper>
     );
 }

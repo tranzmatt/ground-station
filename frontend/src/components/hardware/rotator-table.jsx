@@ -245,11 +245,7 @@ export default function AntennaRotatorTable() {
 
     return (
         <Paper elevation={3} sx={{padding: 2, marginTop: 0, borderRadius: 0}}>
-            <Alert severity="info">
-                <AlertTitle>{t('rotator.title')}</AlertTitle>
-                {t('rotator.subtitle')}
-            </Alert>
-            <Box component="form" sx={{mt: 2}}>
+            <Box component="form">
                 <Box sx={{width: '100%'}}>
                     <DataGrid
                         loading={loading}
@@ -514,6 +510,10 @@ export default function AntennaRotatorTable() {
                     </Stack>
                 </Box>
             </Box>
+            <Alert severity="info" sx={{ mt: 2 }}>
+                <AlertTitle>{t('rotator.title')}</AlertTitle>
+                {t('rotator.subtitle')}
+            </Alert>
         </Paper>
 
     );

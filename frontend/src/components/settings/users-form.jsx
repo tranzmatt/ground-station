@@ -274,12 +274,7 @@ function UsersForm() {
 
     return (
         <Paper elevation={3} sx={{ padding: 2, marginTop: 0, borderRadius: 0 }}>
-            <Alert severity="info">
-                <AlertTitle>User Management</AlertTitle>
-                Manage admin and operator accounts for this station.
-            </Alert>
-
-            <Box component="form" sx={{ mt: 2 }}>
+            <Box component="form">
                 <Box sx={{ width: '100%' }}>
                     <DataGrid
                         loading={isBusy}
@@ -362,6 +357,10 @@ function UsersForm() {
                     />
                 </Box>
             </Box>
+            <Alert severity="info" sx={{ mt: 2 }}>
+                <AlertTitle>User Management</AlertTitle>
+                Manage admin and operator accounts for this station.
+            </Alert>
 
             <Dialog
                 open={openUserDialog}
