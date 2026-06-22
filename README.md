@@ -395,7 +395,8 @@ flowchart TB
 Dedicated worker processes provide IQ acquisition, FFT processing, and demodulation support for multiple receiver families:
 
 *   **RTL-SDR** (USB or `rtl_tcp`) workers
-*   **SoapySDR** devices locally or through SoapyRemote: RTL-SDR, Airspy, AirspyHF+, HackRF, HydraSDR, LimeSDR, PlutoSDR, UHD/USRP, and SDRplay (RSP series)
+*   **Airspy / AirspyHF+** native worker support (`AirspyHF+` currently untested)
+*   **SoapySDR** devices locally or through SoapyRemote: RTL-SDR, Airspy, HackRF, HydraSDR, LimeSDR, PlutoSDR, UHD/USRP, and SDRplay (RSP series)
 *   **UHD/USRP** radios via a UHD worker
 *   **Need another SoapySDR device?** Open a GitHub issue and request support.
 
