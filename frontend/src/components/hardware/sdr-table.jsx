@@ -1844,14 +1844,26 @@ export default function SDRsPage() {
         return fields;
     };
     return (
-        <Paper elevation={3} sx={{padding: 2, marginTop: 0, borderRadius: 0}}>
+        <Paper
+            elevation={3}
+            sx={{
+                px: 2,
+                pb: 2,
+                pt: 2,
+                marginTop: 0,
+                borderRadius: 0,
+                display: 'flex',
+                flexDirection: 'column',
+            }}
+        >
             <Paper
                 variant="outlined"
                 sx={{
-                    mb: 2,
+                    mt: 2,
                     borderRadius: 2,
                     borderColor: 'divider',
                     overflow: 'hidden',
+                    order: 2,
                 }}
             >
                 {/* Card Header */}
@@ -2035,7 +2047,7 @@ export default function SDRsPage() {
 
                 </Box>
             </Paper>
-            <Box component="form" sx={{mt: 2}}>
+            <Box component="form" sx={{ mt: 0, order: 1 }}>
                 <Box sx={{width: '100%'}}>
                     <DataGrid
                         loading={loading}
@@ -2064,7 +2076,6 @@ export default function SDRsPage() {
                         }}
                         sx={{
                             border: 0,
-                            marginTop: 2,
                             [`& .${gridClasses.cell}:focus, & .${gridClasses.cell}:focus-within`]: {
                                 outline: 'none',
                             },
