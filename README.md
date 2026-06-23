@@ -3,9 +3,11 @@
 [![Tests](https://github.com/sgoudelis/ground-station/actions/workflows/tests.yml/badge.svg)](https://github.com/sgoudelis/ground-station/actions/workflows/tests.yml) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Release](https://github.com/sgoudelis/ground-station/actions/workflows/release-from-images.yml/badge.svg?event=push)](https://github.com/sgoudelis/ground-station/actions/workflows/release-from-images.yml) [![Last Release](https://img.shields.io/github/release-date/sgoudelis/ground-station)](https://github.com/sgoudelis/ground-station/releases/latest) [![Last Commit](https://img.shields.io/github/last-commit/sgoudelis/ground-station)](https://github.com/sgoudelis/ground-station/commits/main)
 
 
-**Ground Station is a full-featured, open-source software solution for satellite tracking and radio communication.** Designed for amateur radio operators, satellite enthusiasts, and researchers, it provides
-a comprehensive and easy-to-use platform for monitoring spacecraft, controlling radio equipment, and receiving
-live radio signals from satellites.
+**Ground Station is an open-source, browser-based application for tracking satellites and celestial targets,
+controlling station hardware, and receiving, decoding, and recording SDR signals.** Built for amateur radio
+operators, satellite enthusiasts, and researchers, it brings orbit visualization, multi-target tracking consoles,
+SDR waterfall analysis, packet and telemetry decoding, scheduled observations, and hardware management into a
+single web interface.
 
 ## Screenshots
 
