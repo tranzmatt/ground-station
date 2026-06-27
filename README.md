@@ -11,6 +11,7 @@ single web interface.
 
 ## Recent Releases (Last 10 Tags)
 
+* **v0.7.4 (2026-06-27):** Added timeline scrubbing and improved IQ playback controls, refined SDR options/streaming behavior, introduced resettable table defaults with versioned migration logic for EarthView and celestial views, and added transmitter duplication support.
 * **v0.7.3 (2026-06-25):** Improved worker presentation timing for Android WebView, refined Satellites admin UI layout, and enhanced SDR table rendering/port behavior.
 * **v0.7.2 (2026-06-22):** Added native Airspy/Airspy HF+ support (**Airspy HF+ currently untested**), grouped SDRs by type with inline edit actions, and updated SDR management docs/UI copy.
 * **v0.7.1 (2026-06-20):** Expanded celestial catalog defaults with major moons for Uranus, Neptune, and Pluto.
@@ -20,7 +21,6 @@ single web interface.
 * **v0.5.1 (2026-06-09):** Added dynamic moon-phase visualization and improved tracker-state restoration/cleanup behavior.
 * **v0.5.0 (2026-06-09):** Delivered major earthview/location workflow updates, including location wizard improvements, callsign metadata, and target/map UX refinements.
 * **v0.4.13 (2026-05-30):** Fixed snapshot/SigMF playback path traversal risk and refactored default system satellite-group constants/selection logic.
-* **v0.4.12 (2026-05-27):** Dependency refresh tag (`idna`, `ws`); this tag points to the same commit as `v0.4.11`.
 
 ## Screenshots
 
