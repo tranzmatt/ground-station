@@ -464,6 +464,7 @@ Ground Station includes comprehensive IQ recording and playback capabilities usi
 *   **Full Processing Pipeline:** Playback supports FFT display, demodulation, and all signal processing
 *   **Live-equivalent Decoding:** During playback, demodulators and decoders run exactly as they do with live SDR input
 *   **Recording Browser:** Sortable list of recordings with metadata preview (sample rate, duration, timestamp)
+*   **Timeline Scrubbing:** A playback position slider above the waterfall status bar shows elapsed/total time and supports seeking to a target time
 *   **Seamless Integration:** Switch between live SDR and playback without changing workflows
 
 ## Automated Observations

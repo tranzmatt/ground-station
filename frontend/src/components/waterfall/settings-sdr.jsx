@@ -93,6 +93,10 @@ const SdrAccordion = ({
                           onGainElementChange,
                           isRecording,
                           startStreamValidationErrors,
+                          playbackRecordings,
+                          playbackRecordingsLoading,
+                          selectedPlaybackRecordingName,
+                          onPlaybackRecordingChange,
 }) => {
     const { t } = useTranslation('waterfall');
     const sdrOptionsByGroup = React.useMemo(() => {
@@ -171,6 +175,7 @@ const SdrAccordion = ({
         sdrSettings?.clockSource ?? selectedCapabilities?.clock_source ?? 'none';
     const selectedTimeSource =
         sdrSettings?.timeSource ?? selectedCapabilities?.time_source ?? 'none';
+    const playbackRecordingOptions = Array.isArray(playbackRecordings) ? playbackRecordings : [];
 
     const formatList = (values) => {
         if (!values || !Array.isArray(values) || values.length === 0) {
@@ -258,6 +263,18 @@ const SdrAccordion = ({
         // Show both user-facing label and stable hardware port key.
         return `${userLabel} (${internalName})`;
     };
+    const isSigmfPlaybackSelected = selectedSDRId === 'sigmf-playback';
+    const formatRecordingTimestamp = (recording) => {
+        const raw = recording?.modified || recording?.created || null;
+        if (!raw) {
+            return t('sdr.unknown_date', { defaultValue: 'Unknown date' });
+        }
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) {
+            return t('sdr.unknown_date', { defaultValue: 'Unknown date' });
+        }
+        return parsed.toLocaleString();
+    };
 
     return (
         <Accordion expanded={expanded} onChange={onAccordionChange}>
@@ -311,6 +328,42 @@ const SdrAccordion = ({
                                 {sdrMenuItems}
                             </Select>
                         </FormControl>
+                        {isSigmfPlaybackSelected && (
+                            <FormControl
+                                disabled={gettingSDRParameters || isStreaming}
+                                sx={{minWidth: 200, marginTop: 0, marginBottom: 1}}
+                                fullWidth
+                                variant="outlined"
+                                size="small"
+                            >
+                                <InputLabel>{t('sdr.playback_recording', { defaultValue: 'IQ Recording' })}</InputLabel>
+                                <Select
+                                    size="small"
+                                    value={selectedPlaybackRecordingName || 'none'}
+                                    label={t('sdr.playback_recording', { defaultValue: 'IQ Recording' })}
+                                    onChange={(e) => onPlaybackRecordingChange?.(e.target.value)}
+                                >
+                                    <MenuItem value="none">
+                                        {t('sdr.select_playback_recording', { defaultValue: 'Select recording' })}
+                                    </MenuItem>
+                                    {playbackRecordingsLoading && playbackRecordingOptions.length === 0 && (
+                                        <MenuItem value="loading" disabled>
+                                            {t('sdr.loading_recordings', { defaultValue: 'Loading recordings...' })}
+                                        </MenuItem>
+                                    )}
+                                    {playbackRecordingOptions.map((recording) => (
+                                        <MenuItem key={recording.name} value={recording.name}>
+                                            {recording.name} - {formatRecordingTimestamp(recording)}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                                {!playbackRecordingsLoading && playbackRecordingOptions.length === 0 && (
+                                    <FormHelperText>
+                                        {t('sdr.no_playback_recordings', { defaultValue: 'No IQ recordings found' })}
+                                    </FormHelperText>
+                                )}
+                            </FormControl>
+                        )}
 
                         <FormControl disabled={gettingSDRParameters || (selectedSDRId === 'sigmf-playback' && isStreaming)}
                                      error={gainRequiredError}

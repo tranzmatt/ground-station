@@ -173,24 +173,26 @@ const useWaterfallStream = ({
 
     const startStreaming = useCallback(() => {
         if (!isStreaming) {
-            // Toolbar play button should only handle real SDRs, not SigmfPlayback
-            if (selectedSDRId === "sigmf-playback") {
-                toast.error('Use the playback controls to play recordings');
+            const isSigmfPlayback = selectedSDRId === "sigmf-playback";
+            if (isSigmfPlayback && !playbackRecordingPath) {
+                toast.error('Please select a recording first');
                 return;
             }
 
-            const validationErrors = {
-                gain: isUnsetSelection(gain),
-                sampleRate: isUnsetSelection(sampleRate),
-                antenna: isUnsetSelection(selectedAntenna),
-            };
-            if (validationErrors.gain || validationErrors.sampleRate || validationErrors.antenna) {
-                dispatch(setStartStreamValidationErrors(validationErrors));
-                if (!expandedPanels.includes('sdr')) {
-                    dispatch(setExpandedPanels([...expandedPanels, 'sdr']));
+            if (!isSigmfPlayback) {
+                const validationErrors = {
+                    gain: isUnsetSelection(gain),
+                    sampleRate: isUnsetSelection(sampleRate),
+                    antenna: isUnsetSelection(selectedAntenna),
+                };
+                if (validationErrors.gain || validationErrors.sampleRate || validationErrors.antenna) {
+                    dispatch(setStartStreamValidationErrors(validationErrors));
+                    if (!expandedPanels.includes('sdr')) {
+                        dispatch(setExpandedPanels([...expandedPanels, 'sdr']));
+                    }
+                    toast.error('Select gain, sample rate, and antenna before starting stream');
+                    return;
                 }
-                toast.error('Select gain, sample rate, and antenna before starting stream');
-                return;
             }
 
             dispatch(clearStartStreamValidationErrors());
@@ -231,6 +233,7 @@ const useWaterfallStream = ({
     fftOverlapDepth,
     antenna: selectedAntenna,
     offsetFrequency: selectedOffsetValue,
+    recordingPath: playbackRecordingPath,
     soapyAgc,
     fftAveraging,
     sdrSettings: sdrSettingsById?.[selectedSDRId]?.draft || {}
@@ -246,7 +249,7 @@ const useWaterfallStream = ({
   }
 });
         }
-    }, [isStreaming, dispatch, socket, selectedSDRId, centerFrequency, sampleRate, gain, fftSize, biasT, tunerAgc, rtlAgc, fftWindow, fftOverlapPercent, fftOverlapDepth, selectedAntenna, selectedOffsetValue, soapyAgc, fftAveraging, getAudioState, initializeAudio, isUnsetSelection, expandedPanels]);
+    }, [isStreaming, dispatch, socket, selectedSDRId, centerFrequency, sampleRate, gain, fftSize, biasT, tunerAgc, rtlAgc, fftWindow, fftOverlapPercent, fftOverlapDepth, selectedAntenna, selectedOffsetValue, playbackRecordingPath, soapyAgc, fftAveraging, getAudioState, initializeAudio, isUnsetSelection, expandedPanels, sdrSettingsById]);
 
     const stopStreaming = useCallback(async () => {
         if (isStreaming) {
@@ -289,8 +292,9 @@ const useWaterfallStream = ({
         const noSDRSelected = selectedSDRId === 'none';
         const isSigmfPlayback = selectedSDRId === 'sigmf-playback';
         const isLoadingParameters = gettingSDRParameters;
-        return isStreamingActive || noSDRSelected || isSigmfPlayback || isLoadingParameters;
-    }, [isStreaming, selectedSDRId, gettingSDRParameters]);
+        const missingPlaybackRecording = isSigmfPlayback && !playbackRecordingPath;
+        return isStreamingActive || noSDRSelected || isLoadingParameters || missingPlaybackRecording;
+    }, [isStreaming, selectedSDRId, gettingSDRParameters, playbackRecordingPath]);
 
     return { startStreaming, stopStreaming, playButtonEnabledOrNot };
 };

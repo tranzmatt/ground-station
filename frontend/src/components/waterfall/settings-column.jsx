@@ -18,7 +18,7 @@
  */
 
 
-import React, {useImperativeHandle, forwardRef, useCallback, useEffect, useState, useRef} from 'react';
+import React, {useImperativeHandle, forwardRef, useCallback, useEffect, useState, useRef, useMemo} from 'react';
 import {Box, Typography, IconButton} from '@mui/material';
 import {UnfoldMore, UnfoldLess} from '@mui/icons-material';
 import {
@@ -101,6 +101,7 @@ import RecordingAccordion from "./settings-recording.jsx";
 import PlaybackAccordion from "./settings-playback.jsx";
 import { useTranslation } from 'react-i18next';
 import { selectRunningRigTransmitters } from "../target/transmitter-selectors.js";
+import { fetchFiles } from "../filebrowser/filebrowser-slice.jsx";
 
 const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemainingSecondsRef }, ref) {
     const { t } = useTranslation('waterfall');
@@ -225,6 +226,11 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
     const {
         sdrs
     } = useSelector((state) => state.sdrs);
+    const {
+        files: filebrowserFiles,
+        filesLoading: filebrowserLoading,
+        filters: filebrowserFilters,
+    } = useSelector((state) => state.filebrowser, shallowEqual);
 
     const {
         preferences
@@ -248,8 +254,32 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
     const [localColorMap, setLocalColorMap] = useState(colorMap);
     const [localAutoDBRange, setLocalAutoDBRange] = useState(autoDBRange);
     const hasInitializedRef = useRef(false);
+    const showSnapshotsFilter = filebrowserFilters?.showSnapshots ?? true;
+    const showDecodedFilter = filebrowserFilters?.showDecoded ?? true;
+    const showAudioFilter = filebrowserFilters?.showAudio ?? true;
+    const showTranscriptionsFilter = filebrowserFilters?.showTranscriptions ?? true;
 
     const {socket} = useSocket();
+
+    const playbackRecordings = useMemo(() => {
+        const recordings = (filebrowserFiles || []).filter((file) => file.type === 'recording');
+        const toTimestamp = (recording) => {
+            const raw = recording?.modified || recording?.created || null;
+            if (!raw) {
+                return 0;
+            }
+            const ts = new Date(raw).getTime();
+            return Number.isFinite(ts) ? ts : 0;
+        };
+
+        return [...recordings].sort((a, b) => {
+            const diff = toTimestamp(b) - toTimestamp(a);
+            if (diff !== 0) {
+                return diff;
+            }
+            return String(a?.name || '').localeCompare(String(b?.name || ''));
+        });
+    }, [filebrowserFiles]);
 
     useEffect(() => {
         setLocalCenterFrequency(centerFrequency);
@@ -269,6 +299,28 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
         }
         // No cleanup function - let the ref stay true to prevent any subsequent calls for StrictMode
     }, []);
+
+    useEffect(() => {
+        if (!socket || selectedSDRId !== 'sigmf-playback') {
+            return;
+        }
+        dispatch(fetchFiles({
+            socket,
+            showRecordings: true,
+            showSnapshots: showSnapshotsFilter,
+            showDecoded: showDecodedFilter,
+            showAudio: showAudioFilter,
+            showTranscriptions: showTranscriptionsFilter,
+        }));
+    }, [
+        dispatch,
+        socket,
+        selectedSDRId,
+        showSnapshotsFilter,
+        showDecodedFilter,
+        showAudioFilter,
+        showTranscriptionsFilter,
+    ]);
 
     const getDefaultFFTOverlapPercentForSDR = useCallback(() => 50, []);
 
@@ -1145,6 +1197,20 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
         }
     };
 
+    const handlePlaybackRecordingDropdownChange = (recordingName) => {
+        if (!recordingName || recordingName === 'none') {
+            dispatch(clearPlaybackRecording());
+            return;
+        }
+
+        const recording = playbackRecordings.find((item) => item.name === recordingName);
+        if (!recording) {
+            toast.error('Recording not found. Refresh and try again.');
+            return;
+        }
+        handleRecordingSelect(recording);
+    };
+
     const handlePlaybackPlay = () => {
         // Playback accordion play button handles full configuration and start
         if (!isStreaming && selectedSDRId === 'sigmf-playback' && playbackRecordingPath) {
@@ -1277,6 +1343,10 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
                     onRtlAgcChange={handleRtlAgcChange}
                     isRecording={isRecording}
                     startStreamValidationErrors={startStreamValidationErrors}
+                    playbackRecordings={playbackRecordings}
+                    playbackRecordingsLoading={filebrowserLoading}
+                    selectedPlaybackRecordingName={selectedPlaybackRecording?.name || playbackRecordingPath || 'none'}
+                    onPlaybackRecordingChange={handlePlaybackRecordingDropdownChange}
                 />
 
                 <FrequencyControlAccordion

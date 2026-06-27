@@ -359,6 +359,7 @@ class ProcessLifecycleManager:
                 "ppm_error",
                 "recording_path",
                 "loop_playback",
+                "seek_seconds",
                 "sdr_settings",
             ]:
                 if param in sdr_config:
@@ -687,11 +688,16 @@ class ProcessLifecycleManager:
         new_sample_rate = effective_config.get("sample_rate")
         old_center_freq = old_config.get("center_freq")
         new_center_freq = effective_config.get("center_freq")
+        seek_requested = "seek_seconds" in config and config.get("seek_seconds") is not None
 
         # If sample rate OR center frequency changed, flush all queues
         # Note: Treat None -> value (or value -> None) as a change as well so that
         # the very first change after process start is detected.
-        if (new_sample_rate != old_sample_rate) or (new_center_freq != old_center_freq):
+        if (
+            (new_sample_rate != old_sample_rate)
+            or (new_center_freq != old_center_freq)
+            or seek_requested
+        ):
             # Log appropriate message based on what changed
             if new_sample_rate != old_sample_rate:
                 if old_sample_rate is not None and new_sample_rate is not None:
@@ -713,6 +719,10 @@ class ProcessLifecycleManager:
                     self.logger.info(
                         f"Center frequency changing from {old_center_freq} to {new_center_freq}, flushing all queues"
                     )
+            if seek_requested:
+                self.logger.info(
+                    f"Playback seek requested for SDR {sdr_id}: {config.get('seek_seconds')}s, flushing all queues"
+                )
             # Flush demodulator queues
             self.demodulator_manager.flush_all_demodulator_queues(sdr_id)
 

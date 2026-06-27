@@ -22,8 +22,6 @@ import React, {useEffect, useRef, useState, useCallback} from 'react';
 import {
     Box,
     Typography,
-    Button,
-    Stack,
     Slider,
     useTheme,
     Fade,
@@ -33,10 +31,7 @@ import { shallowEqual, useDispatch, useSelector } from "react-redux";
 import { AutoScaleOnceIcon, AutoDBIcon } from '../common/custom-icons.jsx';
 import {
     getClassNamesBasedOnGridEditing,
-    humanizeFrequency,
-    humanizeNumber,
     TitleBar,
-    WaterfallStatusBarPaper
 } from "../common/common.jsx";
 import WaterfallAndBandscope from './waterfall-bandscope.jsx'
 import {
@@ -101,6 +96,23 @@ import { drawBandscope as drawBandscopeModule } from './worker-modules/rendering
 import { updateSmoothedFftData } from './worker-modules/smoothing.js';
 import { useWaterfallEngine } from './waterfall-engine-provider.jsx';
 import { getSmoothingConfig } from './smoothing-presets.js';
+import { toast } from '../../utils/toast-with-timestamp.jsx';
+
+const PLAYBACK_TIMELINE_UPDATE_MS = 250;
+
+function formatPlaybackTime(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+        return '00:00';
+    }
+    const safeSeconds = Math.floor(seconds);
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const secs = safeSeconds % 60;
+    if (hours > 0) {
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
     playbackElapsedSecondsRef,
@@ -934,6 +946,196 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
         }
     }, [dispatch, vfoActive]);
 
+    const isPlaybackStreaming = isStreaming && selectedSDRId === 'sigmf-playback';
+    const [playbackTimeline, setPlaybackTimeline] = useState({
+        elapsedSeconds: 0,
+        remainingSeconds: 0,
+        totalSeconds: 0,
+    });
+    const [isPlaybackSeeking, setIsPlaybackSeeking] = useState(false);
+    const [isPlaybackPointerDown, setIsPlaybackPointerDown] = useState(false);
+    const [pendingPlaybackSeekSeconds, setPendingPlaybackSeekSeconds] = useState(null);
+
+    useEffect(() => {
+        if (!isPlaybackStreaming) {
+            setPlaybackTimeline({ elapsedSeconds: 0, remainingSeconds: 0, totalSeconds: 0 });
+            setIsPlaybackSeeking(false);
+            setIsPlaybackPointerDown(false);
+            setPendingPlaybackSeekSeconds(null);
+            return;
+        }
+
+        const updatePlaybackTimeline = () => {
+            const elapsedRaw = Number(playbackElapsedSecondsRef?.current);
+            const remainingRaw = Number(playbackRemainingSecondsRef?.current);
+            const totalRaw = Number(playbackTotalSecondsRef?.current);
+
+            const totalSeconds = Number.isFinite(totalRaw) && totalRaw > 0 ? totalRaw : 0;
+            const elapsedSeconds = Number.isFinite(elapsedRaw) && elapsedRaw >= 0
+                ? Math.min(elapsedRaw, totalSeconds || elapsedRaw)
+                : 0;
+            const remainingSeconds = Number.isFinite(remainingRaw) && remainingRaw >= 0
+                ? remainingRaw
+                : Math.max(totalSeconds - elapsedSeconds, 0);
+
+            setPlaybackTimeline((prev) => {
+                if (
+                    Math.abs(prev.elapsedSeconds - elapsedSeconds) < 0.01 &&
+                    Math.abs(prev.remainingSeconds - remainingSeconds) < 0.01 &&
+                    Math.abs(prev.totalSeconds - totalSeconds) < 0.01
+                ) {
+                    return prev;
+                }
+                return { elapsedSeconds, remainingSeconds, totalSeconds };
+            });
+
+            // Keep the slider pinned at the requested position while waiting for backend seek.
+            if (
+                !isPlaybackSeeking &&
+                pendingPlaybackSeekSeconds !== null &&
+                Math.abs(elapsedSeconds - pendingPlaybackSeekSeconds) <= 1
+            ) {
+                setPendingPlaybackSeekSeconds(null);
+            }
+        };
+
+        updatePlaybackTimeline();
+
+        let rafId = 0;
+        let lastTs = 0;
+        const tick = (ts) => {
+            if (document.hidden) {
+                rafId = requestAnimationFrame(tick);
+                return;
+            }
+            if (ts - lastTs >= PLAYBACK_TIMELINE_UPDATE_MS) {
+                lastTs = ts;
+                updatePlaybackTimeline();
+            }
+            rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
+
+        return () => cancelAnimationFrame(rafId);
+    }, [
+        isPlaybackStreaming,
+        isPlaybackSeeking,
+        pendingPlaybackSeekSeconds,
+        playbackElapsedSecondsRef,
+        playbackRemainingSecondsRef,
+        playbackTotalSecondsRef,
+    ]);
+
+    const playbackHasDuration = playbackTimeline.totalSeconds > 0;
+    const playbackLiveElapsedSeconds = playbackHasDuration
+        ? Math.min(playbackTimeline.elapsedSeconds, playbackTimeline.totalSeconds)
+        : 0;
+    const playbackSliderSeconds =
+        pendingPlaybackSeekSeconds !== null ? pendingPlaybackSeekSeconds : playbackLiveElapsedSeconds;
+    const playbackSliderProgressPercent = playbackHasDuration
+        ? (playbackSliderSeconds / playbackTimeline.totalSeconds) * 100
+        : 0;
+    const playbackLabelPositionPercent = Math.min(
+        Math.max(playbackSliderProgressPercent, 8),
+        92
+    );
+
+    useEffect(() => {
+        if (!isPlaybackPointerDown) {
+            return undefined;
+        }
+
+        const handlePointerUp = () => {
+            setIsPlaybackPointerDown(false);
+        };
+
+        window.addEventListener('mouseup', handlePointerUp);
+        window.addEventListener('touchend', handlePointerUp);
+        window.addEventListener('touchcancel', handlePointerUp);
+
+        return () => {
+            window.removeEventListener('mouseup', handlePointerUp);
+            window.removeEventListener('touchend', handlePointerUp);
+            window.removeEventListener('touchcancel', handlePointerUp);
+        };
+    }, [isPlaybackPointerDown]);
+
+    const handlePlaybackPointerDown = useCallback((event) => {
+        event?.stopPropagation?.();
+        if (!playbackHasDuration) {
+            return;
+        }
+        setIsPlaybackPointerDown(true);
+    }, [playbackHasDuration]);
+
+    const handlePlaybackPointerUp = useCallback((event) => {
+        event?.stopPropagation?.();
+        setIsPlaybackPointerDown(false);
+    }, []);
+
+    const handlePlaybackSeekChange = useCallback((event, value) => {
+        event?.stopPropagation?.();
+        if (!playbackHasDuration) {
+            return;
+        }
+        const nextValue = Array.isArray(value) ? value[0] : value;
+        if (!Number.isFinite(nextValue)) {
+            return;
+        }
+        const clampedSeconds = Math.max(0, Math.min(nextValue, playbackTimeline.totalSeconds));
+        setIsPlaybackSeeking(true);
+        setPendingPlaybackSeekSeconds(clampedSeconds);
+    }, [playbackHasDuration, playbackTimeline.totalSeconds]);
+
+    const handlePlaybackSeekCommit = useCallback((event, value) => {
+        event?.stopPropagation?.();
+        setIsPlaybackSeeking(false);
+
+        if (!playbackHasDuration || !socket || !isPlaybackStreaming) {
+            setPendingPlaybackSeekSeconds(null);
+            return;
+        }
+
+        const nextValue = Array.isArray(value) ? value[0] : value;
+        if (!Number.isFinite(nextValue)) {
+            setPendingPlaybackSeekSeconds(null);
+            return;
+        }
+
+        const clampedSeconds = Math.max(0, Math.min(nextValue, playbackTimeline.totalSeconds));
+        if (Math.abs(clampedSeconds - playbackLiveElapsedSeconds) < 0.05) {
+            setPendingPlaybackSeekSeconds(null);
+            return;
+        }
+
+        setPendingPlaybackSeekSeconds(clampedSeconds);
+
+        socket.emit(
+            "api.call",
+            {
+                cmd: "sdr.seek-playback",
+                data: {
+                    selectedSDRId: 'sigmf-playback',
+                    positionSeconds: clampedSeconds,
+                },
+            },
+            (response) => {
+                if (!response?.success) {
+                    setPendingPlaybackSeekSeconds(null);
+                    toast.error(
+                        response?.error || response?.message || 'Failed to seek playback'
+                    );
+                }
+            }
+        );
+    }, [
+        isPlaybackStreaming,
+        playbackHasDuration,
+        playbackLiveElapsedSeconds,
+        playbackTimeline.totalSeconds,
+        socket,
+    ]);
+
     return (
         <div ref={mainWaterFallContainer}>
         <TitleBar
@@ -1136,6 +1338,88 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
                     zIndex: 450,
                 }}
             >
+                {isPlaybackStreaming && playbackHasDuration && (
+                    <Box
+                        sx={{
+                            px: 1.25,
+                            py: 0.65,
+                            borderTop: `1px solid ${theme.palette.border.main}`,
+                            backgroundColor: theme.palette.background.paper,
+                            position: 'relative',
+                        }}
+                    >
+                        <Box sx={{ position: 'relative', px: 0.5, pb: 1.15 }}>
+                            <Slider
+                                min={0}
+                                max={playbackTimeline.totalSeconds}
+                                step={0.1}
+                                value={playbackSliderSeconds}
+                                onMouseDown={handlePlaybackPointerDown}
+                                onMouseUp={handlePlaybackPointerUp}
+                                onTouchStart={handlePlaybackPointerDown}
+                                onTouchEnd={handlePlaybackPointerUp}
+                                onChange={handlePlaybackSeekChange}
+                                onChangeCommitted={handlePlaybackSeekCommit}
+                                size="small"
+                                aria-label="Playback position"
+                                sx={{
+                                    position: 'relative',
+                                    zIndex: 2,
+                                    color: '#ff0033',
+                                    py: 0.25,
+                                    '& .MuiSlider-rail': {
+                                        height: 3,
+                                        opacity: 1,
+                                        backgroundColor: 'rgba(255, 255, 255, 0.24)',
+                                        borderRadius: 999,
+                                    },
+                                    '& .MuiSlider-track': {
+                                        height: 3,
+                                        border: 'none',
+                                        borderRadius: 999,
+                                    },
+                                    '& .MuiSlider-thumb': {
+                                        width: isPlaybackSeeking ? 12 : 10,
+                                        height: isPlaybackSeeking ? 12 : 10,
+                                        zIndex: 3,
+                                        borderRadius: '50%',
+                                        backgroundColor: '#ff0033',
+                                        boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.9)',
+                                        transition: 'all 120ms ease',
+                                        '&::before': { boxShadow: 'none' },
+                                        '&:hover, &.Mui-focusVisible, &.Mui-active': {
+                                            boxShadow: '0 0 0 5px rgba(255, 0, 51, 0.22)',
+                                        },
+                                    },
+                                }}
+                            />
+                            {isPlaybackPointerDown && (
+                                <Box
+                                    sx={{
+                                        position: 'absolute',
+                                        left: `${playbackLabelPositionPercent}%`,
+                                        top: '-3px',
+                                        transform: 'translate(-50%, -100%)',
+                                        pointerEvents: 'none',
+                                        zIndex: 1,
+                                        fontSize: '0.7rem',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 600,
+                                        color: '#fff',
+                                        px: 0.8,
+                                        py: 0.15,
+                                        borderRadius: 1,
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        backgroundColor: 'rgba(15, 15, 15, 0.82)',
+                                        backdropFilter: 'blur(4px)',
+                                    }}
+                                >
+                                    {formatPlaybackTime(playbackSliderSeconds)} / {formatPlaybackTime(playbackTimeline.totalSeconds)}
+                                </Box>
+                            )}
+                        </Box>
+                    </Box>
+                )}
                 <WaterfallStatusBar isStreaming={isStreaming} eventMetrics={eventMetrics} centerFrequency={centerFrequency} sampleRate={sampleRate} gain={gain} />
             </Box>
         </div>

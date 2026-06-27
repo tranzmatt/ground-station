@@ -411,6 +411,46 @@ async def sdr_command_routing(
                 )
                 reply["success"] = False
 
+        elif cmd == "seek-playback":
+
+            try:
+                sdr_id = data.get("selectedSDRId", None)
+                if sdr_id != "sigmf-playback":
+                    raise Exception("Playback seeking is only supported for SigMF Playback SDR")
+
+                if not session_service.session_exists(client_id):
+                    raise Exception(f"Client with id: {client_id} not registered")
+
+                if not process_manager.is_sdr_process_running(sdr_id):
+                    raise Exception("SigMF playback is not currently streaming")
+
+                position_seconds = _coerce_float(
+                    data.get("positionSeconds", 0), 0, "positionSeconds", logger
+                )
+                if position_seconds < 0:
+                    logger.warning("positionSeconds < 0 requested; clamping to 0")
+                    position_seconds = 0.0
+
+                # Forward seek request as a runtime config update.
+                await process_manager.update_configuration(
+                    sdr_id,
+                    {"client_id": client_id, "seek_seconds": position_seconds},
+                )
+
+                reply["success"] = True
+                reply["data"] = {"position_seconds": position_seconds}
+
+            except Exception as e:
+                logger.error(f"Error seeking SigMF playback: {str(e)}")
+                logger.exception(e)
+                await sio.emit(
+                    "sdr-error",
+                    {"message": f"Failed to seek SigMF playback: {str(e)}"},
+                    room=client_id,
+                )
+                reply["success"] = False
+                reply["error"] = str(e)
+
         elif cmd == "start-recording":
             try:
                 sdr_id = data.get("selectedSDRId", None)
@@ -886,6 +926,7 @@ def register_handlers(registry):
         "configure-sdr",
         "start-streaming",
         "stop-streaming",
+        "seek-playback",
         "start-recording",
         "stop-recording",
         "start-audio-recording",
