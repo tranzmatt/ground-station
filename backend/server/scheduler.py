@@ -16,6 +16,7 @@ from db import AsyncSessionLocal
 from observations.constants import DEFAULT_AUTO_GENERATE_INTERVAL_HOURS
 from observations.generator import generate_observations_for_monitored_satellites
 from tasks.registry import get_task
+from tracker.runner import get_tracker_supervisor
 
 # Suppress apscheduler internal INFO logs (only show warnings and errors)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
@@ -38,6 +39,54 @@ def _is_orbital_sync_task(task: Dict[str, Any]) -> bool:
     return any(
         pattern in task_name or pattern in task_command for pattern in _ORBITAL_SYNC_TASK_PATTERNS
     )
+
+
+def _normalize_target_type(tracking_state: Dict[str, Any]) -> str:
+    target_type = str(tracking_state.get("target_type") or "").strip().lower()
+    if target_type in {"satellite", "mission", "body"}:
+        return target_type
+    if str(tracking_state.get("command") or "").strip():
+        return "mission"
+    if str(tracking_state.get("body_id") or "").strip():
+        return "body"
+    return "satellite"
+
+
+async def _resync_active_non_satellite_trackers() -> Dict[str, int]:
+    """Push refreshed celestial vectors into active mission/body tracker workers."""
+    supervisor = get_tracker_supervisor()
+    active_tracker_ids = [
+        tracker_id
+        for tracker_id in supervisor.get_all_tracker_ids()
+        if supervisor.is_alive(tracker_id)
+    ]
+    if not active_tracker_ids:
+        return {"active": 0, "resynced": 0, "failed": 0}
+
+    managers = supervisor.get_managers()
+    resynced = 0
+    failed = 0
+
+    for tracker_id in active_tracker_ids:
+        manager = managers.get(tracker_id)
+        if manager is None:
+            continue
+
+        tracking_state = manager.current_tracking_state or await manager.get_tracking_state() or {}
+        if _normalize_target_type(tracking_state) not in {"mission", "body"}:
+            continue
+
+        try:
+            await manager.sync_tracking_state_from_db()
+            resynced += 1
+        except Exception:
+            failed += 1
+            logger.exception(
+                "Failed to resync tracker context after celestial vector refresh (tracker_id=%s)",
+                tracker_id,
+            )
+
+    return {"active": len(active_tracker_ids), "resynced": resynced, "failed": failed}
 
 
 async def sync_satellite_data_job(background_task_manager):
@@ -181,6 +230,13 @@ async def sync_celestial_vector_snapshots_job(background_task_manager):
                 result.get("refreshed", 0),
                 result.get("failed", 0),
                 result.get("count", 0),
+            )
+            tracker_resync = await _resync_active_non_satellite_trackers()
+            logger.info(
+                "Tracker context resync after celestial sync: active=%s resynced=%s failed=%s",
+                tracker_resync.get("active", 0),
+                tracker_resync.get("resynced", 0),
+                tracker_resync.get("failed", 0),
             )
             return
         if result.get("skipped"):
