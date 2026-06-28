@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional, Union
 
 from crud import orbitalsources as orbital_sources_crud
 from db import AsyncSessionLocal
+from tlesync.persist import load_orbital_sync_state, should_hydrate_orbital_sync_state
 from tlesync.state import sync_state_manager
 
 
@@ -86,8 +87,21 @@ async def fetch_sync_state(
     sio: Any, data: Optional[Dict], logger: Any, sid: str
 ) -> Dict[str, Union[bool, dict]]:
     """Get orbital synchronization state."""
+    del sio, data, sid
     logger.debug("Getting orbital synchronization state")
-    return {"success": True, "data": sync_state_manager.get_state()}
+
+    runtime_state = sync_state_manager.get_state()
+    if should_hydrate_orbital_sync_state(runtime_state):
+        try:
+            async with AsyncSessionLocal() as dbsession:
+                persisted_state = await load_orbital_sync_state(dbsession)
+            if persisted_state:
+                sync_state_manager.set_state(persisted_state, touch_timestamp=False)
+                runtime_state = sync_state_manager.get_state()
+        except Exception:
+            logger.exception("Failed to hydrate orbital sync state from tracking_state")
+
+    return {"success": True, "data": runtime_state}
 
 
 def register_handlers(registry):

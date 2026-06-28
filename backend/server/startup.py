@@ -40,6 +40,8 @@ from server.systeminfo import start_system_info_emitter
 from server.version import get_full_version_info, get_update_check
 from tasks.manager import BackgroundTaskManager
 from tasks.registry import get_task
+from tlesync.persist import load_orbital_sync_state
+from tlesync.state import sync_state_manager
 from tracker.instances import emit_tracker_instances, restore_tracker_instances_from_db
 from tracker.messages import handle_tracker_messages
 
@@ -91,6 +93,15 @@ async def lifespan(fastapiapp: FastAPI):
     background_task_manager = BackgroundTaskManager(sio)
     runtimestate.background_task_manager = background_task_manager
     logger.info("BackgroundTaskManager initialized")
+
+    # Hydrate last orbital sync snapshot so status survives process restarts.
+    try:
+        async with AsyncSessionLocal() as dbsession:
+            persisted_sync_state = await load_orbital_sync_state(dbsession)
+        if persisted_sync_state:
+            sync_state_manager.set_state(persisted_sync_state, touch_timestamp=False)
+    except Exception:
+        logger.exception("Failed to hydrate orbital sync state at startup")
 
     # Trim stale auth-session history at startup. Active sessions are excluded by policy.
     try:

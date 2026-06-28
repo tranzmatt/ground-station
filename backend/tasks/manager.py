@@ -12,7 +12,7 @@ Features:
 - Real-time progress updates via Queue
 - Process status tracking (running, completed, failed, stopped)
 - Graceful termination with timeout
-- In-memory storage only (no persistence)
+- In-memory task tracking with persisted orbital sync end-state snapshots
 - No shell command injection vulnerabilities
 
 Usage Example (Python):
@@ -66,8 +66,10 @@ from queue import Empty
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from common.logger import logger
+from db import AsyncSessionLocal
 from handlers.entities.filebrowser import emit_file_browser_state
 from hardware.soapysdrbrowser import update_discovered_servers
+from tlesync.persist import is_terminal_orbital_sync_state, save_orbital_sync_state
 from tlesync.state import sync_state_manager
 from tracker.runner import get_all_tracker_managers
 
@@ -117,6 +119,15 @@ def _is_soapysdr_task(task_name: str, func_name: str) -> bool:
     return "soapysdr" in normalized_name or "soapysdr" in normalized_func_name
 
 
+def _is_orbital_sync_task(task_name: str, func_name: str) -> bool:
+    normalized_name = str(task_name or "").strip().lower()
+    normalized_func_name = str(func_name or "").strip().lower()
+    patterns = ("orbital_sync", "orbital data sync", "tle_sync", "tle sync")
+    return any(
+        pattern in normalized_name or pattern in normalized_func_name for pattern in patterns
+    )
+
+
 def _task_wrapper(func: Callable, args: Tuple, kwargs: Dict, queue: mp.Queue):
     """
     Wrapper function that runs in the child process.
@@ -154,7 +165,7 @@ class BackgroundTaskManager:
     - Socket.IO event emission for UI updates
     - Task cancellation support
     - Automatic cleanup on completion
-    - In-memory task tracking (no persistence)
+    - In-memory task tracking (orbital sync end state persisted separately)
     """
 
     def __init__(self, socketio):
@@ -168,6 +179,19 @@ class BackgroundTaskManager:
         self.tasks: Dict[str, TaskInfo] = {}
         self._monitor_tasks: Dict[str, asyncio.Task] = {}
         logger.info("BackgroundTaskManager (multiprocessing) initialized")
+
+    async def _persist_orbital_sync_state(self, state: Dict[str, Any]) -> None:
+        """
+        Persist terminal orbital sync snapshots for post-restart UI hydration.
+
+        Only terminal snapshots are persisted to avoid frequent writes while a
+        sync is still in progress.
+        """
+        try:
+            async with AsyncSessionLocal() as dbsession:
+                await save_orbital_sync_state(dbsession, state)
+        except Exception:
+            logger.exception("Failed to persist orbital sync state snapshot")
 
     async def start_task(
         self,
@@ -596,6 +620,9 @@ class BackgroundTaskManager:
             except Exception as e:
                 logger.error(f"Failed to update main sync state: {e}")
 
+            if is_terminal_orbital_sync_state(state):
+                await self._persist_orbital_sync_state(state)
+
             # Forward the complete sync state to the frontend
             # This maintains compatibility with existing UI expectations
             await self.sio.emit("sat-sync-events", state)
@@ -712,6 +739,26 @@ class BackgroundTaskManager:
             task_info.status = TaskStatus.STOPPED
             task_info.end_time = time.time()
             task_info.return_code = process.exitcode
+
+            if _is_orbital_sync_task(task_info.name, task_info.func_name):
+                stopped_message = "Orbital data synchronization stopped by user"
+                current_state = dict(sync_state_manager.get_state() or {})
+                errors = list(current_state.get("errors") or [])
+                if stopped_message not in errors:
+                    errors.append(stopped_message)
+                current_state.update(
+                    {
+                        "status": "complete",
+                        "progress": 100,
+                        "success": False,
+                        "message": stopped_message,
+                        "active_sources": [],
+                        "errors": errors,
+                    }
+                )
+                sync_state_manager.set_state(current_state)
+                await self._persist_orbital_sync_state(sync_state_manager.get_state())
+                await self.sio.emit("sat-sync-events", sync_state_manager.get_state())
 
             # Cancel monitoring task
             monitor_task = self._monitor_tasks.get(task_id)
