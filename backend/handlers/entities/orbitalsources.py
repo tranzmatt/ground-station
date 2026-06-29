@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional, Union
 
 from crud import orbitalsources as orbital_sources_crud
 from db import AsyncSessionLocal
+from server.schedulerstate import get_orbital_sync_next_run_time
 from tlesync.persist import load_orbital_sync_state, should_hydrate_orbital_sync_state
 from tlesync.state import sync_state_manager
 
@@ -101,7 +102,11 @@ async def fetch_sync_state(
         except Exception:
             logger.exception("Failed to hydrate orbital sync state from tracking_state")
 
-    return {"success": True, "data": runtime_state}
+    # Scheduler metadata is runtime-derived and should not be persisted in tracking_state.
+    # We attach it only to outgoing payloads for UI display.
+    payload_state = dict(runtime_state or {})
+    payload_state["next_scheduled_sync_at"] = get_orbital_sync_next_run_time()
+    return {"success": True, "data": payload_state}
 
 
 def register_handlers(registry):

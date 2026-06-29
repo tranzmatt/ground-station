@@ -15,6 +15,7 @@ from common.logger import logger
 from db import AsyncSessionLocal
 from observations.constants import DEFAULT_AUTO_GENERATE_INTERVAL_HOURS
 from observations.generator import generate_observations_for_monitored_satellites
+from server.schedulerstate import ORBITAL_SYNC_JOB_ID, set_scheduler_reference
 from tasks.registry import get_task
 from tracker.runner import get_tracker_supervisor
 
@@ -260,13 +261,14 @@ def start_scheduler(sio, process_manager, background_task_manager):
         return scheduler
 
     scheduler = AsyncIOScheduler()
+    set_scheduler_reference(scheduler)
 
     # Schedule satellite data synchronization every 24 hours
     scheduler.add_job(
         sync_satellite_data_job,
         trigger=IntervalTrigger(hours=24),
         args=[background_task_manager],
-        id="sync_satellite_data",
+        id=ORBITAL_SYNC_JOB_ID,
         name="Synchronize satellite data",
         replace_existing=True,
     )
@@ -342,5 +344,6 @@ def stop_scheduler():
 
     logger.info("Stopping background task scheduler...")
     scheduler.shutdown(wait=False)
+    set_scheduler_reference(None)
     scheduler = None
     logger.info("Background task scheduler stopped")

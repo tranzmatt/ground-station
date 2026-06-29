@@ -5,18 +5,42 @@ import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import SyncIcon from '@mui/icons-material/Sync';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import { humanizeDate } from '../common/common.jsx';
+import { humanizeDate, humanizeFutureDateInMinutes } from '../common/common.jsx';
+import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
+import { formatDateTime } from '../../utils/date-time.js';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 
 const SyncCardHeader = ({ syncState, onSynchronize }) => {
     const { t } = useTranslation('satellites');
+    const { timezone, locale } = useUserTimeSettings();
     const normalizedStatus = String(syncState?.status || '').toLowerCase();
     const progress = Number(syncState?.progress || 0);
     const isSyncing = ['inprogress', 'in_progress', 'started', 'running'].includes(normalizedStatus)
         || (progress > 0 && progress < 100);
     const isCompleted = normalizedStatus === 'complete' && syncState?.success !== false;
     const lastUpdateText = t('synchronize.header.last_update', { date: humanizeDate(syncState.last_update) });
+    const nextScheduledSyncRelative = syncState?.next_scheduled_sync_at
+        ? humanizeFutureDateInMinutes(syncState.next_scheduled_sync_at)
+        : '';
+    const formattedNextScheduledSync = formatDateTime(syncState?.next_scheduled_sync_at, {
+        timezone,
+        locale,
+    });
+    const nextScheduledSyncText = nextScheduledSyncRelative
+        ? t('synchronize.header.next_scheduled_sync', {
+            defaultValue: 'Next scheduled sync: {{when}}',
+            when: nextScheduledSyncRelative,
+        })
+        : t('synchronize.header.next_scheduled_sync_unknown', {
+            defaultValue: 'Next scheduled sync: Not available',
+        });
+    const nextScheduledSyncTooltipText = formattedNextScheduledSync
+        ? t('synchronize.header.next_scheduled_sync_exact', {
+            defaultValue: 'Next scheduled sync: {{date}}',
+            date: formattedNextScheduledSync,
+        })
+        : nextScheduledSyncText;
 
     return (
         <>
@@ -98,20 +122,43 @@ const SyncCardHeader = ({ syncState, onSynchronize }) => {
                         label={t('synchronize.header.status_idle', { defaultValue: 'Idle' })}
                     />
                 )}
-                <Typography
-                    variant="caption"
-                    color="text.disabled"
+                <Box
                     sx={{
-                        fontFamily: 'monospace',
                         ml: 'auto',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        minWidth: 0,
                     }}
-                    title={lastUpdateText}
                 >
-                    {lastUpdateText}
-                </Typography>
+                    <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{
+                            display: 'block',
+                            fontFamily: 'monospace',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'right',
+                        }}
+                        title={lastUpdateText}
+                    >
+                        {lastUpdateText}
+                    </Typography>
+                    <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{
+                            display: 'block',
+                            fontFamily: 'monospace',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'right',
+                        }}
+                        title={nextScheduledSyncTooltipText}
+                    >
+                        {nextScheduledSyncText}
+                    </Typography>
+                </Box>
             </Box>
         </>
     );

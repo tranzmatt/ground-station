@@ -69,6 +69,7 @@ from common.logger import logger
 from db import AsyncSessionLocal
 from handlers.entities.filebrowser import emit_file_browser_state
 from hardware.soapysdrbrowser import update_discovered_servers
+from server.schedulerstate import get_orbital_sync_next_run_time
 from tlesync.persist import is_terminal_orbital_sync_state, save_orbital_sync_state
 from tlesync.state import sync_state_manager
 from tracker.runner import get_all_tracker_managers
@@ -611,7 +612,7 @@ class BackgroundTaskManager:
 
         elif msg_type in ("orbital_sync_state", "tle_sync_state"):
             # Orbital synchronization state update from background task
-            state = message.get("state", {})
+            state = dict(message.get("state", {}) or {})
             progress = message.get("progress", 0)
 
             # Keep main-process sync state in sync for fetch-sync-state requests
@@ -623,9 +624,13 @@ class BackgroundTaskManager:
             if is_terminal_orbital_sync_state(state):
                 await self._persist_orbital_sync_state(state)
 
+            # Keep scheduler-derived fields runtime-only (not stored in tracking_state).
+            payload_state = dict(state)
+            payload_state["next_scheduled_sync_at"] = get_orbital_sync_next_run_time()
+
             # Forward the complete sync state to the frontend
             # This maintains compatibility with existing UI expectations
-            await self.sio.emit("sat-sync-events", state)
+            await self.sio.emit("sat-sync-events", payload_state)
 
             # Also emit generic progress update for task list visibility
             await self.sio.emit(
@@ -634,7 +639,7 @@ class BackgroundTaskManager:
                     "task_id": task_id,
                     "name": task_info.name,
                     "stream": "stdout",
-                    "output": state.get("message", "Synchronizing..."),
+                    "output": payload_state.get("message", "Synchronizing..."),
                     "progress": progress,
                 },
             )
@@ -758,7 +763,9 @@ class BackgroundTaskManager:
                 )
                 sync_state_manager.set_state(current_state)
                 await self._persist_orbital_sync_state(sync_state_manager.get_state())
-                await self.sio.emit("sat-sync-events", sync_state_manager.get_state())
+                payload_state = dict(sync_state_manager.get_state() or {})
+                payload_state["next_scheduled_sync_at"] = get_orbital_sync_next_run_time()
+                await self.sio.emit("sat-sync-events", payload_state)
 
             # Cancel monitoring task
             monitor_task = self._monitor_tasks.get(task_id)
