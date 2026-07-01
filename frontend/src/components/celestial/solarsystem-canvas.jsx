@@ -71,7 +71,9 @@ const ASSET_BASE_URL = import.meta.env.BASE_URL || '/';
 const NORMALIZED_ASSET_BASE_URL = ASSET_BASE_URL.endsWith('/') ? ASSET_BASE_URL : `${ASSET_BASE_URL}/`;
 const STARFIELD_CATALOG_URL = `${NORMALIZED_ASSET_BASE_URL}assets/astronomy/stars-bright-v1.json`;
 const IMPERIAL_DISTANCE_REGIONS = new Set(['US', 'LR', 'MM']);
-const TARGET_SLOT_BADGE_SCALE = 0.9;
+const TARGET_SLOT_BADGE_SCALE = 0.81;
+const TARGET_SLOT_BADGE_HORIZONTAL_PADDING_PX = 2.5;
+const TARGET_SLOT_BADGE_FONT_HEIGHT_RATIO = 0.8;
 const DEFAULT_DISPLAY_OPTIONS = {
     showGrid: true,
     showPlanets: true,
@@ -1525,10 +1527,11 @@ const SolarSystemCanvas = ({
                         const bodyTargetSlotLabel = `T${Math.round(bodyTargetSlotNumber)}`;
                         const isBodySelected = hasTrackedSelection && selectedTargetKeySet.has(bodyTargetKey);
                         const targetBadgeHeight = (isBodySelected ? 17 : 15) * TARGET_SLOT_BADGE_SCALE;
-                        const targetBadgeHorizontalPadding = 4 * TARGET_SLOT_BADGE_SCALE;
+                        const targetBadgeHorizontalPadding = TARGET_SLOT_BADGE_HORIZONTAL_PADDING_PX
+                            * TARGET_SLOT_BADGE_SCALE;
                         const targetLabelRenderFontSize = Math.max(
                             Math.round(11 * TARGET_SLOT_BADGE_SCALE),
-                            Math.round(targetBadgeHeight * 0.68)
+                            Math.round(targetBadgeHeight * TARGET_SLOT_BADGE_FONT_HEIGHT_RATIO)
                         );
                         const targetLabelFontFamily = theme.typography?.fontFamily || 'Arial';
                         ctx.save();
@@ -1657,10 +1660,11 @@ const SolarSystemCanvas = ({
                 let targetSlotBadgeSpec = null;
                 // Keep the target-slot badge in the Solar System canvas slightly more compact.
                 const targetBadgeHeight = (isSelected ? 17 : 15) * TARGET_SLOT_BADGE_SCALE;
-                const targetBadgeHorizontalPadding = 4 * TARGET_SLOT_BADGE_SCALE;
+                const targetBadgeHorizontalPadding = TARGET_SLOT_BADGE_HORIZONTAL_PADDING_PX
+                    * TARGET_SLOT_BADGE_SCALE;
                 const targetLabelRenderFontSize = Math.max(
                     Math.round(11 * TARGET_SLOT_BADGE_SCALE),
-                    Math.round(targetBadgeHeight * 0.68)
+                    Math.round(targetBadgeHeight * TARGET_SLOT_BADGE_FONT_HEIGHT_RATIO)
                 );
                 const targetLabelFontFamily = theme.typography?.fontFamily || 'Arial';
                 if (hasTargetSlotNumber) {
