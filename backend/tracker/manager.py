@@ -91,11 +91,40 @@ class TrackerManager:
         target_type = str(tracking_state.get("target_type") or "").strip().lower()
         if target_type in {"satellite", "mission", "body"}:
             return target_type
+        if str(tracking_state.get("mission_id") or "").strip():
+            return "mission"
         if str(tracking_state.get("command") or "").strip():
             return "mission"
         if str(tracking_state.get("body_id") or "").strip():
             return "body"
         return "satellite"
+
+    @staticmethod
+    def _build_non_satellite_transmitter_target_key(tracking_state: Dict[str, Any]) -> str:
+        target_type = TrackerManager._normalize_target_type(tracking_state)
+        return (
+            crud.transmitters.build_target_key(
+                target_type=target_type,
+                mission_id=tracking_state.get("mission_id"),
+                command=tracking_state.get("command"),
+                body_id=tracking_state.get("body_id"),
+            )
+            or ""
+        )
+
+    @staticmethod
+    async def _fetch_non_satellite_transmitters(
+        dbsession,
+        *,
+        tracking_state: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        target_key = TrackerManager._build_non_satellite_transmitter_target_key(tracking_state)
+        if not target_key:
+            return {"success": True, "data": [], "error": None}
+        return cast(
+            Dict[str, Any],
+            await crud.transmitters.fetch_transmitters_for_target_key(dbsession, target_key),
+        )
 
     @staticmethod
     async def _load_cached_vector_payload(
@@ -143,9 +172,11 @@ class TrackerManager:
             "name": str(tracking_state.get("target_name") or command).strip() or command,
             "command": command,
             "position_xyz_au": payload.get("position_xyz_au"),
+            "velocity_xyz_au_per_day": payload.get("velocity_xyz_au_per_day"),
             "orbit_samples_xyz_au": payload.get("orbit_samples_xyz_au") or [],
             "orbit_sample_times_utc": payload.get("orbit_sample_times_utc") or [],
             "earth_position_xyz_au": earth_payload.get("position_xyz_au"),
+            "earth_velocity_xyz_au_per_day": earth_payload.get("velocity_xyz_au_per_day"),
             "earth_orbit_samples_xyz_au": earth_payload.get("orbit_samples_xyz_au") or [],
             "earth_orbit_sample_times_utc": earth_payload.get("orbit_sample_times_utc") or [],
             "source": payload.get("source", "horizons"),
@@ -180,9 +211,11 @@ class TrackerManager:
             "body_id": body_id,
             "name": body_name,
             "position_xyz_au": body_payload.get("position_xyz_au"),
+            "velocity_xyz_au_per_day": body_payload.get("velocity_xyz_au_per_day"),
             "orbit_samples_xyz_au": body_payload.get("orbit_samples_xyz_au") or [],
             "orbit_sample_times_utc": body_payload.get("orbit_sample_times_utc") or [],
             "earth_position_xyz_au": earth_payload.get("position_xyz_au"),
+            "earth_velocity_xyz_au_per_day": earth_payload.get("velocity_xyz_au_per_day"),
             "earth_orbit_samples_xyz_au": earth_payload.get("orbit_samples_xyz_au") or [],
             "earth_orbit_sample_times_utc": earth_payload.get("orbit_sample_times_utc") or [],
             "source": body_payload.get("source", "horizons"),
@@ -414,6 +447,29 @@ class TrackerManager:
                 transmitters.get("error"),
             )
 
+    async def notify_non_satellite_transmitters_changed(self, target_key: str) -> None:
+        normalized_target_key = crud.transmitters.normalize_target_key(target_key)
+        if not normalized_target_key:
+            return
+
+        tracking_state = await self._ensure_tracking_state()
+        if not tracking_state:
+            return
+
+        current_target_key = self._build_non_satellite_transmitter_target_key(tracking_state)
+        if current_target_key != normalized_target_key:
+            return
+
+        async with AsyncSessionLocal() as dbsession:
+            transmitters = await crud.transmitters.fetch_transmitters_for_target_key(
+                dbsession, normalized_target_key
+            )
+        if transmitters.get("success"):
+            self._send_to_tracker(
+                TRACKER_MSG_SET_TRANSMITTERS,
+                {"items": transmitters.get("data", [])},
+            )
+
     def notify_transmitters_changed_with_items(
         self, norad_id: int, transmitters: list[dict]
     ) -> None:
@@ -637,8 +693,15 @@ class TrackerManager:
                         self.tracker_id,
                         mission_command or "unknown",
                     )
-                # Mission tracking currently drives only rotator control, not rig doppler/tuning.
-                self._send_to_tracker(TRACKER_MSG_SET_TRANSMITTERS, {"items": []})
+                transmitters = await self._fetch_non_satellite_transmitters(
+                    dbsession,
+                    tracking_state=tracking_state,
+                )
+                if transmitters.get("success"):
+                    self._send_to_tracker(
+                        TRACKER_MSG_SET_TRANSMITTERS,
+                        {"items": transmitters.get("data", [])},
+                    )
             elif target_type == "body":
                 body_payload = await self._build_body_ephemeris_payload(
                     dbsession,
@@ -653,7 +716,15 @@ class TrackerManager:
                         self.tracker_id,
                         body_id or "unknown",
                     )
-                self._send_to_tracker(TRACKER_MSG_SET_TRANSMITTERS, {"items": []})
+                transmitters = await self._fetch_non_satellite_transmitters(
+                    dbsession,
+                    tracking_state=tracking_state,
+                )
+                if transmitters.get("success"):
+                    self._send_to_tracker(
+                        TRACKER_MSG_SET_TRANSMITTERS,
+                        {"items": transmitters.get("data", [])},
+                    )
 
             rig_id = tracking_state.get("rig_id")
             rotator_id = tracking_state.get("rotator_id")
@@ -683,7 +754,7 @@ class TrackerManager:
             return cast(str, TrackerCommandScopes.ROTATOR)
         if {"rig_state", "rig_id", "rig_vfo", "vfo1", "vfo2", "transmitter_id"} & keys:
             return cast(str, TrackerCommandScopes.RIG)
-        if {"norad_id", "group_id", "target_type", "command", "body_id"} & keys:
+        if {"norad_id", "group_id", "target_type", "mission_id", "command", "body_id"} & keys:
             return cast(str, TrackerCommandScopes.TARGET)
         return cast(str, TrackerCommandScopes.TRACKING)
 

@@ -28,7 +28,7 @@ import {
 } from "@mui/x-data-grid";
 import EditIcon from '@mui/icons-material/Edit';
 import {useDispatch} from "react-redux";
-import { deleteTransmitter } from "./satellite-slice.jsx";
+import { deleteTransmitter, fetchTransmitters } from "./satellite-slice.jsx";
 import { setTargetTransmitters } from "../target/target-slice.jsx";
 import {useSocket} from "../common/socket.jsx";
 import TransmitterModal from "./transmitter-modal.jsx";
@@ -81,6 +81,40 @@ const displayValue = (value) => (value === null || value === undefined || value 
 
 const paginationModel = {page: 0, pageSize: 10};
 
+const resolveTransmitterOwner = (ownerData = {}) => {
+    const targetKey = String(ownerData?.target_key || ownerData?.targetKey || '').trim();
+    if (targetKey) {
+        return { targetKey };
+    }
+    const satelliteId = ownerData?.norad_id ?? ownerData?.details?.norad_id;
+    if (satelliteId != null && String(satelliteId).trim() !== '') {
+        return { satelliteId };
+    }
+    return null;
+};
+
+const mapTransmittersToRows = (transmitters = []) => (
+    transmitters.map((transmitter, index) => ({
+        id: transmitter.id || `existing-${index}`,
+        description: displayValue(transmitter.description),
+        source: displayValue(transmitter.source),
+        type: displayValue(transmitter.type),
+        status: displayValue(transmitter.status),
+        alive: displayValue(transmitter.alive),
+        uplinkLow: displayValue(transmitter.uplink_low),
+        uplinkHigh: displayValue(transmitter.uplink_high),
+        uplinkDrift: displayValue(transmitter.uplink_drift),
+        downlinkLow: displayValue(transmitter.downlink_low),
+        downlinkHigh: displayValue(transmitter.downlink_high),
+        downlinkDrift: displayValue(transmitter.downlink_drift),
+        mode: displayValue(transmitter.mode),
+        uplinkMode: displayValue(transmitter.uplink_mode),
+        invert: displayValue(transmitter.invert),
+        baud: displayValue(transmitter.baud),
+        _original: transmitter,
+    }))
+);
+
 const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarget = null }) => {
     const { t } = useTranslation('satellites');
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -91,34 +125,55 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
     const [rows, setRows] = useState([]);
     const dispatch = useDispatch();
     const {socket} = useSocket();
+    const transmitterOwner = React.useMemo(() => resolveTransmitterOwner(satelliteData), [satelliteData]);
 
-    // Update rows when satelliteData changes
+    // Seed rows from incoming props for quick first render while the explicit owner fetch runs.
     useEffect(() => {
-        if (satelliteData && satelliteData.transmitters) {
-                const mappedRows = satelliteData.transmitters.map((transmitter, index) => ({
-                    id: transmitter.id || `existing-${index}`,
-                    description: displayValue(transmitter.description),
-                    source: displayValue(transmitter.source),
-                    type: displayValue(transmitter.type),
-                    status: displayValue(transmitter.status),
-                    alive: displayValue(transmitter.alive),
-                    uplinkLow: displayValue(transmitter.uplink_low),
-                uplinkHigh: displayValue(transmitter.uplink_high),
-                uplinkDrift: displayValue(transmitter.uplink_drift),
-                downlinkLow: displayValue(transmitter.downlink_low),
-                downlinkHigh: displayValue(transmitter.downlink_high),
-                downlinkDrift: displayValue(transmitter.downlink_drift),
-                mode: displayValue(transmitter.mode),
-                uplinkMode: displayValue(transmitter.uplink_mode),
-                invert: displayValue(transmitter.invert),
-                baud: displayValue(transmitter.baud),
-                _original: transmitter,
-            }));
-            setRows(mappedRows);
-        } else {
-            setRows([]);
+        const incomingTransmitters = Array.isArray(satelliteData?.transmitters)
+            ? satelliteData.transmitters
+            : [];
+        if (incomingTransmitters.length > 0) {
+            setRows(mapTransmittersToRows(incomingTransmitters));
+            return;
         }
-    }, [satelliteData]);
+        setRows((currentRows) => (currentRows.length > 0 ? currentRows : []));
+    }, [satelliteData?.transmitters]);
+
+    useEffect(() => {
+        if (!socket || !transmitterOwner) {
+            return;
+        }
+
+        let active = true;
+        dispatch(fetchTransmitters({
+            socket,
+            satelliteId: transmitterOwner?.satelliteId,
+            targetKey: transmitterOwner?.targetKey,
+        }))
+            .unwrap()
+            .then((result) => {
+                if (!active || !Array.isArray(result)) {
+                    return;
+                }
+                setRows(mapTransmittersToRows(result));
+                dispatch(
+                    setTargetTransmitters({
+                        noradId: transmitterOwner?.satelliteId,
+                        targetKey: transmitterOwner?.targetKey,
+                        transmitters: result,
+                        updatedAtMs: Date.now(),
+                        lockDurationMs: 5000,
+                    })
+                );
+            })
+            .catch((error) => {
+                console.error('Failed to fetch transmitters:', error);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [dispatch, socket, transmitterOwner?.satelliteId, transmitterOwner?.targetKey]);
 
     const handleAddClick = () => {
         setEditingTransmitter(null);
@@ -167,7 +222,8 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
                     const result = await dispatch(deleteTransmitter({
                         socket,
                         transmitterId: transmitter._original.id,
-                        satelliteId: satelliteData.norad_id,
+                        satelliteId: transmitterOwner?.satelliteId,
+                        targetKey: transmitterOwner?.targetKey,
                     })).unwrap();
                     if (Array.isArray(result)) {
                         latestTransmitters = result;
@@ -179,33 +235,14 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
             if (latestTransmitters) {
                 dispatch(
                     setTargetTransmitters({
-                        noradId: satelliteData.norad_id,
+                        noradId: transmitterOwner?.satelliteId,
+                        targetKey: transmitterOwner?.targetKey,
                         transmitters: latestTransmitters,
                         updatedAtMs: Date.now(),
                         lockDurationMs: 5000,
                     })
                 );
-                setRows(
-                    latestTransmitters.map((transmitter, index) => ({
-                        id: transmitter.id || `existing-${index}`,
-                        description: displayValue(transmitter.description),
-                        source: displayValue(transmitter.source),
-                        type: displayValue(transmitter.type),
-                        status: displayValue(transmitter.status),
-                        alive: displayValue(transmitter.alive),
-                        uplinkLow: displayValue(transmitter.uplink_low),
-                        uplinkHigh: displayValue(transmitter.uplink_high),
-                        uplinkDrift: displayValue(transmitter.uplink_drift),
-                        downlinkLow: displayValue(transmitter.downlink_low),
-                        downlinkHigh: displayValue(transmitter.downlink_high),
-                        downlinkDrift: displayValue(transmitter.downlink_drift),
-                        mode: displayValue(transmitter.mode),
-                        uplinkMode: displayValue(transmitter.uplink_mode),
-                        invert: displayValue(transmitter.invert),
-                        baud: displayValue(transmitter.baud),
-                        _original: transmitter,
-                    }))
-                );
+                setRows(mapTransmittersToRows(latestTransmitters));
             } else {
                 const updatedTransmitters = rows.filter(row => !selected.includes(row.id));
                 setRows(updatedTransmitters);
@@ -226,6 +263,14 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
         setEditingTransmitter(null);
         setIsNewTransmitter(false);
     };
+
+    const handleModalSaved = React.useCallback((latestTransmitters) => {
+        if (!Array.isArray(latestTransmitters)) {
+            return;
+        }
+        setRows(mapTransmittersToRows(latestTransmitters));
+        setSelected([]);
+    }, []);
 
     const columns = [
         {field: "description", headerName: t('satellite_info.transmitters.columns.description'), flex: 1.2, minWidth: 150},
@@ -310,7 +355,7 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
         }))
         : columns;
 
-    if (!satelliteData || !satelliteData.norad_id) {
+    if (!satelliteData || !transmitterOwner) {
         return (
             <Box sx={{flexShrink: 0}}>
                 <Typography variant="h6" component="h3" sx={{mb: 2}}>
@@ -615,8 +660,10 @@ const TransmittersTable = ({ satelliteData, inDialog = false, actionsPortalTarge
             <TransmitterModal
                 open={editModalOpen}
                 onClose={handleModalClose}
+                onSavedTransmitters={handleModalSaved}
                 transmitter={editingTransmitter}
-                satelliteId={satelliteData.norad_id}
+                satelliteId={transmitterOwner?.satelliteId}
+                targetKey={transmitterOwner?.targetKey}
                 isNew={isNewTransmitter}
             />
         </Box>

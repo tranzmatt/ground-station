@@ -71,6 +71,21 @@ def _resolve_target_search_hints(query: str) -> Dict[str, Any]:
     }
 
 
+def _build_mission_transmitter_target_key(mission: Dict[str, Any]) -> str:
+    return (
+        crud.transmitters.build_target_key(
+            target_type="mission",
+            mission_id=mission.get("id"),
+            command=mission.get("command"),
+        )
+        or ""
+    )
+
+
+def _build_body_transmitter_target_key(body_id: str) -> str:
+    return crud.transmitters.build_target_key(target_type="body", body_id=body_id) or ""
+
+
 async def get_satellites(
     sio: Any, data: Optional[Dict], logger: Any, sid: str
 ) -> Dict[str, Union[bool, list]]:
@@ -253,6 +268,24 @@ async def search_targets(
         else:
             body_rows = search_celestial_bodies(query=query, limit=limit)
 
+        mission_target_keys = [
+            _build_mission_transmitter_target_key(mission) for mission in mission_rows
+        ]
+        body_target_keys = [
+            _build_body_transmitter_target_key(str(body.get("body_id") or "").strip().lower())
+            for body in body_rows
+        ]
+        target_keys = [key for key in [*mission_target_keys, *body_target_keys] if key]
+        transmitters_by_target_key: Dict[str, List[Dict[str, Any]]] = {}
+        if target_keys:
+            async with AsyncSessionLocal() as dbsession:
+                transmitters_reply = await crud.transmitters.fetch_transmitters_for_target_keys(
+                    dbsession,
+                    target_keys,
+                )
+            if transmitters_reply.get("success"):
+                transmitters_by_target_key = transmitters_reply.get("data", {}) or {}
+
         results = []
 
         for satellite in satellite_rows:
@@ -283,15 +316,20 @@ async def search_targets(
             command = str(mission.get("command") or "").strip()
             if not command:
                 continue
+            target_key = _build_mission_transmitter_target_key(mission)
+            mission_id = target_key.split(":", 1)[1] if target_key.startswith("mission:") else ""
             display_name = str(mission.get("display_name") or command).strip()
             results.append(
                 {
-                    "id": f"mission:{command.lower()}",
+                    "id": f"mission:{mission_id}" if mission_id else target_key,
                     "target_type": "mission",
+                    "target_key": target_key,
                     "target_name": display_name,
                     "target_identifier": command,
+                    "mission_id": mission_id or None,
                     "command": command,
                     "display_name": display_name,
+                    "transmitters": transmitters_by_target_key.get(target_key, []),
                     "mission_status": str(mission.get("mission_status") or "unknown")
                     .strip()
                     .lower(),
@@ -303,15 +341,18 @@ async def search_targets(
             body_id = str(body.get("body_id") or "").strip().lower()
             if not body_id:
                 continue
+            target_key = _build_body_transmitter_target_key(body_id)
             body_name = str(body.get("name") or body_id).strip()
             results.append(
                 {
-                    "id": f"body:{body_id}",
+                    "id": target_key or f"body:{body_id}",
                     "target_type": "body",
+                    "target_key": target_key,
                     "target_name": body_name,
                     "target_identifier": body_id,
                     "body_id": body_id,
                     "name": body_name,
+                    "transmitters": transmitters_by_target_key.get(target_key, []),
                     "body_type": str(body.get("body_type") or "").strip(),
                     "parent_body_id": str(body.get("parent_body_id") or "").strip().lower(),
                 }

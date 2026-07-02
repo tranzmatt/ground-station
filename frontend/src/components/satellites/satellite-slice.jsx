@@ -109,6 +109,31 @@ export const submitTransmitter = createAsyncThunk(
     }
 );
 
+export const fetchTransmitters = createAsyncThunk(
+    'satellites/fetchTransmitters',
+    async ({socket, satelliteId, targetKey}, {rejectWithValue}) => {
+        try {
+            return await new Promise((resolve, reject) => {
+                const data = targetKey
+                    ? { target_key: targetKey }
+                    : { norad_cat_id: satelliteId };
+                socket.emit("api.call", {
+  cmd: 'get-transmitters',
+  data: data
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch transmitters'));
+  }
+});
+            });
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
 export const editTransmitter = createAsyncThunk(
     'satellites/editTransmitter',
     async ({socket, transmitterData}, {rejectWithValue}) => {
@@ -133,10 +158,15 @@ export const editTransmitter = createAsyncThunk(
 
 export const deleteTransmitter = createAsyncThunk(
     'satellites/deleteTransmitter',
-    async ({socket, satelliteId, transmitterId}, {rejectWithValue}) => {
+    async ({socket, satelliteId, targetKey, transmitterId}, {rejectWithValue}) => {
         try {
             return await new Promise((resolve, reject) => {
-                const data = {'transmitter_id': transmitterId, 'norad_cat_id': satelliteId};
+                const data = {'transmitter_id': transmitterId};
+                if (targetKey) {
+                    data.target_key = targetKey;
+                } else {
+                    data.norad_cat_id = satelliteId;
+                }
                 socket.emit("api.call", {
   cmd: 'delete-transmitter',
   data: data

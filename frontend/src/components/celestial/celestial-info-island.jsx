@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Button, CircularProgress, Divider, Tooltip, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, IconButton, Tooltip, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import { useTranslation } from 'react-i18next';
 import { getClassNamesBasedOnGridEditing, islandTitleBarSx, TitleBar } from '../common/common.jsx';
 import { useSocket } from '../common/socket.jsx';
@@ -15,6 +16,7 @@ import { useTargetRotatorSelectionDialog } from '../target/use-target-rotator-se
 import { toast } from '../../utils/toast-with-timestamp.jsx';
 import TargetIcon from './target-icon.jsx';
 import { resolveTargetDisplayName } from '../target/celestial-target-utils.js';
+import TransmittersDialog from '../satellites/transmitters-dialog.jsx';
 
 const AU_IN_KM = 149597870.7;
 const SECONDS_PER_DAY = 86400;
@@ -30,8 +32,12 @@ const buildTargetKey = (entry) => {
         const bodyId = String(entry?.bodyId || entry?.body_id || entry?.command || '').trim().toLowerCase();
         return bodyId ? `body:${bodyId}` : '';
     }
+    const missionId = String(entry?.mission_id || entry?.missionId || '').trim();
+    if (missionId) {
+        return `mission:${missionId}`;
+    }
     const command = String(entry?.command || '').trim();
-    return command ? `mission:${command}` : '';
+    return command ? `missioncmd:${command}` : '';
 };
 
 const magnitude3 = (vector) => {
@@ -99,8 +105,12 @@ const buildTrackingTargetKey = (trackingState = {}) => {
         return bodyId ? `body:${bodyId}` : '';
     }
     if (targetType === 'mission') {
+        const missionId = String(trackingState?.mission_id || '').trim();
+        if (missionId) {
+            return `mission:${missionId}`;
+        }
         const command = String(trackingState?.command || '').trim();
-        return command ? `mission:${command}` : '';
+        return command ? `missioncmd:${command}` : '';
     }
     return '';
 };
@@ -116,12 +126,14 @@ const CelestialInfoIsland = ({
     const dispatch = useDispatch();
     const { socket } = useSocket();
     const { t } = useTranslation('earthview');
+    const { t: tSat } = useTranslation('satellites');
     const { timezone, locale } = useUserTimeSettings();
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const { trackingState, trackerViews } = useSelector((state) => state.targetSatTrack || {});
     const { requestRotatorForTarget, dialog: rotatorSelectionDialog } = useTargetRotatorSelectionDialog();
     const normalizedTargetKey = String(selectedTargetKey || '').trim();
     const nowMs = Date.now();
+    const [transmittersDialogOpen, setTransmittersDialogOpen] = useState(false);
 
     const trackByTargetKey = useMemo(() => {
         const map = {};
@@ -187,6 +199,14 @@ const CelestialInfoIsland = ({
         celestialRows: tracks,
     });
     const targetIdentifier = targetType === 'body' ? (bodyTargetId || '-') : (missionCommand || '-');
+    const targetTransmitters = Array.isArray(selectedTrack?.transmitters)
+        ? selectedTrack.transmitters
+        : (Array.isArray(selectedMonitored?.transmitters) ? selectedMonitored.transmitters : []);
+    const transmittersDialogData = {
+        name: targetName || targetIdentifier || '',
+        target_key: normalizedTargetKey,
+        transmitters: targetTransmitters,
+    };
     const selectedColor = normalizeHexColor(selectedTrack?.color || selectedMonitored?.color || '');
     const isTargetable = Boolean(
         normalizedTargetKey
@@ -396,9 +416,22 @@ const CelestialInfoIsland = ({
                                             showMoonPhase={targetType === 'body'}
                                         />
                                         <Box sx={{ minWidth: 0 }}>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.15 }}>
-                                                {targetName || '-'}
-                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                                                <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.15 }}>
+                                                    {targetName || '-'}
+                                                </Typography>
+                                                <Tooltip title="Edit Transmitters">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => setTransmittersDialogOpen(true)}
+                                                            disabled={!normalizedTargetKey || isCardLoading}
+                                                        >
+                                                            <RadioButtonCheckedIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            </Box>
                                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                                 {targetType === 'body' ? 'Body' : 'Mission'} · {targetIdentifier}
                                             </Typography>
@@ -527,6 +560,16 @@ const CelestialInfoIsland = ({
                     </Button>
                 </Box>
             </Box>
+            <TransmittersDialog
+                open={transmittersDialogOpen}
+                onClose={() => setTransmittersDialogOpen(false)}
+                title={tSat('satellite_database.edit_transmitters_title', {
+                    name: targetName || normalizedTargetKey || '',
+                })}
+                satelliteData={transmittersDialogData}
+                variant="paper"
+                widthOffsetPx={20}
+            />
         </>
     );
 };

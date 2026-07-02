@@ -234,7 +234,8 @@ class Transmitters(Base):
     invert = Column(Boolean, nullable=True)
     baud = Column(Integer, nullable=True)
     sat_id = Column(String, nullable=True)
-    norad_cat_id = Column(Integer, ForeignKey("satellites.norad_id"), nullable=False)
+    norad_cat_id = Column(Integer, ForeignKey("satellites.norad_id"), nullable=True)
+    target_key = Column(String, nullable=True, index=True)
     norad_follow_id = Column(Integer, nullable=True)
     status = Column(String, nullable=False)
     citation = Column(String, nullable=True)
@@ -251,6 +252,14 @@ class Transmitters(Base):
         nullable=True,
         default=datetime.now(timezone.utc),
         onupdate=datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "(norad_cat_id IS NOT NULL AND target_key IS NULL) OR "
+            "(norad_cat_id IS NULL AND target_key IS NOT NULL)",
+            name="ck_transmitters_owner_scope",
+        ),
     )
 
 

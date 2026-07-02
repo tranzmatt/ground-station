@@ -140,6 +140,7 @@ const TargetInfoIsland = () => {
         () => buildTargetKeyFromTrackingState(trackingState),
         [trackingState],
     );
+    const hasNonSatelliteTargetKey = Boolean(nonSatelliteTargetKey);
     const celestialRows = React.useMemo(
         () => (Array.isArray(celestialState?.celestialTracks?.celestial) ? celestialState.celestialTracks.celestial : []),
         [celestialState?.celestialTracks?.celestial],
@@ -156,6 +157,10 @@ const TargetInfoIsland = () => {
             if (keyMatch) return keyMatch;
         }
         if (targetType === 'mission') {
+            const missionId = String(trackingState?.mission_id || '').trim();
+            if (missionId) {
+                return celestialRows.find((row) => String(row?.mission_id || row?.missionId || '').trim() === missionId) || null;
+            }
             const command = String(trackingState?.command || '').trim();
             if (command) {
                 return celestialRows.find((row) => String(row?.command || '').trim() === command) || null;
@@ -177,6 +182,10 @@ const TargetInfoIsland = () => {
             if (keyMatch) return keyMatch;
         }
         if (targetType === 'mission') {
+            const missionId = String(trackingState?.mission_id || '').trim();
+            if (missionId) {
+                return monitoredRows.find((row) => String(row?.mission_id || row?.missionId || '').trim() === missionId) || null;
+            }
             const command = String(trackingState?.command || '').trim();
             if (command) {
                 return monitoredRows.find((row) => String(row?.command || '').trim() === command) || null;
@@ -202,11 +211,20 @@ const TargetInfoIsland = () => {
     ).trim();
     const nonSatelliteIdentifier = String(
         (targetType === 'mission'
-            ? trackingState?.command
+            ? (trackingState?.mission_id || trackingState?.command)
             : trackingState?.body_id)
         || targetIdentifier
         || '-'
     ).trim();
+    const nonSatelliteDialogData = React.useMemo(
+        () => ({
+            ...(satelliteData?.details || {}),
+            name: nonSatelliteTargetName,
+            target_key: nonSatelliteTargetKey,
+            transmitters,
+        }),
+        [nonSatelliteTargetKey, nonSatelliteTargetName, satelliteData?.details, transmitters],
+    );
     // Mission/body realtime pointing should come directly from tracker telemetry.
     const nonSatelliteAzimuth = hasCurrentNonSatelliteTelemetry
         ? Number(satelliteData?.position?.az)
@@ -1208,16 +1226,6 @@ const TargetInfoIsland = () => {
                 satelliteData={satelliteDialogData}
                 onSaved={handleSatelliteSaved}
             />
-            <TransmittersDialog
-                open={transmittersDialogOpen}
-                onClose={() => setTransmittersDialogOpen(false)}
-                title={tSat('satellite_database.edit_transmitters_title', {
-                    name: selectedSatelliteName || selectedNoradId || '',
-                })}
-                satelliteData={satelliteDialogData}
-                variant="paper"
-                widthOffsetPx={20}
-            />
             </>
             )}
                 </>
@@ -1243,18 +1251,31 @@ const TargetInfoIsland = () => {
                                             boxShadow: (theme) => `0 0 8px ${theme.palette[nonSatelliteStatusMeta.chipColor]?.main || theme.palette.text.secondary}`,
                                         }} />
                                         <Box sx={{ minWidth: 0, flex: 1 }}>
-                                            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, letterSpacing: '0.3px' }}>
-                                                {nonSatelliteTargetName || '-'}
-                                                <Typography
-                                                    component="span"
-                                                    variant="caption"
-                                                    sx={{ ml: 0.75, color: 'text.secondary', fontWeight: 500, fontSize: '0.7rem' }}
-                                                >
-                                                    {targetType === 'mission'
-                                                        ? (nonSatelliteIdentifier || '-')
-                                                        : `Body ID · ${nonSatelliteIdentifier || '-'}`}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                                                <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, letterSpacing: '0.3px' }}>
+                                                    {nonSatelliteTargetName || '-'}
+                                                    <Typography
+                                                        component="span"
+                                                        variant="caption"
+                                                        sx={{ ml: 0.75, color: 'text.secondary', fontWeight: 500, fontSize: '0.7rem' }}
+                                                    >
+                                                        {targetType === 'mission'
+                                                            ? (nonSatelliteIdentifier || '-')
+                                                            : `Body ID · ${nonSatelliteIdentifier || '-'}`}
+                                                    </Typography>
                                                 </Typography>
-                                            </Typography>
+                                                <Tooltip title="Edit Transmitters">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => setTransmittersDialogOpen(true)}
+                                                            disabled={!hasNonSatelliteTargetKey}
+                                                        >
+                                                            <RadioButtonCheckedIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            </Box>
                                         </Box>
                                     </Box>
                                 </Box>
@@ -1447,7 +1468,7 @@ const TargetInfoIsland = () => {
                                 <Grid size={6}>
                                     <DataPoint
                                         icon={InfoOutlinedIcon}
-                                        label={targetType === 'mission' ? 'Mission Command' : 'Body ID'}
+                                        label={targetType === 'mission' ? 'Mission ID' : 'Body ID'}
                                         value={nonSatelliteIdentifier || '-'}
                                     />
                                 </Grid>
@@ -1585,6 +1606,18 @@ const TargetInfoIsland = () => {
                     </Box>
                 </>
             )}
+            <TransmittersDialog
+                open={transmittersDialogOpen}
+                onClose={() => setTransmittersDialogOpen(false)}
+                title={tSat('satellite_database.edit_transmitters_title', {
+                    name: isSatelliteTarget
+                        ? (selectedSatelliteName || selectedNoradId || '')
+                        : (nonSatelliteTargetName || nonSatelliteTargetKey || ''),
+                })}
+                satelliteData={isSatelliteTarget ? satelliteDialogData : nonSatelliteDialogData}
+                variant="paper"
+                widthOffsetPx={20}
+            />
         </Box>
     );
 }

@@ -25,9 +25,10 @@ describe('buildTargetKeyFromCelestialRow', () => {
   });
 
   it('derives mission/body keys when explicit key is missing', () => {
-    expect(buildTargetKeyFromCelestialRow({ target_type: 'mission', command: 'Voyager 1' })).toBe('mission:Voyager 1');
+    expect(buildTargetKeyFromCelestialRow({ target_type: 'mission', mission_id: 'voyager-1' })).toBe('mission:voyager-1');
+    expect(buildTargetKeyFromCelestialRow({ target_type: 'mission', command: 'Voyager 1' })).toBe('missioncmd:Voyager 1');
     expect(buildTargetKeyFromCelestialRow({ targetType: 'body', bodyId: 'Rhea' })).toBe('body:rhea');
-    expect(buildTargetKeyFromCelestialRow({ command: 'Cassini' })).toBe('mission:Cassini');
+    expect(buildTargetKeyFromCelestialRow({ command: 'Cassini' })).toBe('missioncmd:Cassini');
   });
 });
 
@@ -38,7 +39,7 @@ describe('buildTargetSlotNumberByTargetKey', () => {
         tracker_id: 'target-3',
         tracking_state: {
           target_type: 'mission',
-          command: 'Voyager 1',
+          mission_id: 'voyager-1',
         },
       },
       {
@@ -65,7 +66,7 @@ describe('buildTargetSlotNumberByTargetKey', () => {
     ]);
 
     expect(mapping).toEqual({
-      'mission:Voyager 1': 3,
+      'mission:voyager-1': 3,
       'body:rhea': 2,
     });
   });
@@ -76,25 +77,25 @@ describe('buildTargetSlotNumberByTargetKey', () => {
         tracker_id: 'target-8',
         tracking_state: {
           target_type: 'mission',
-          command: 'Voyager 1',
+          mission_id: 'voyager-1',
         },
       },
       {
         tracker_id: 'target-1',
         tracking_state: {
           target_type: 'mission',
-          command: 'Voyager 1',
+          mission_id: 'voyager-1',
         },
       },
       {
         tracker_id: 'target-5',
         tracking_state: {
           target_type: 'mission',
-          command: 'Voyager 1',
+          mission_id: 'voyager-1',
         },
       },
     ]);
 
-    expect(mapping['mission:Voyager 1']).toBe(1);
+    expect(mapping['mission:voyager-1']).toBe(1);
   });
 });

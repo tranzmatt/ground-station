@@ -25,8 +25,12 @@ const buildPassTargetKey = (pass) => {
     const bodyId = String(pass?.body_id || pass?.command || '').trim().toLowerCase();
     return bodyId ? `body:${bodyId}` : '';
   }
+  const missionId = String(pass?.mission_id || pass?.missionId || '').trim();
+  if (missionId) {
+    return `mission:${missionId}`;
+  }
   const command = String(pass?.command || '').trim();
-  return command ? `mission:${command}` : '';
+  return command ? `missioncmd:${command}` : '';
 };
 
 const PassTimelineComponent = ({

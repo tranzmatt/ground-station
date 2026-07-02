@@ -6,6 +6,7 @@ export const normalizeTargetType = (trackingState = {}) => {
     if (explicitType === 'satellite' || explicitType === 'mission' || explicitType === 'body') {
         return explicitType;
     }
+    if (String(trackingState?.mission_id || '').trim()) return 'mission';
     if (String(trackingState?.command || '').trim()) return 'mission';
     if (String(trackingState?.body_id || '').trim()) return 'body';
     return 'satellite';
@@ -14,6 +15,8 @@ export const normalizeTargetType = (trackingState = {}) => {
 const normalizeText = (value) => String(value ?? '').trim();
 
 const normalizeBodyId = (value) => normalizeText(value).toLowerCase();
+
+const normalizeMissionId = (value) => normalizeText(value);
 
 export const parseTargetSlotNumber = (trackerId = '') => {
     const match = String(trackerId || '').trim().match(TARGET_SLOT_ID_PATTERN);
@@ -32,9 +35,12 @@ const formatBodyNameFromId = (bodyId) => {
         .join(' ');
 };
 
-const buildTargetKey = ({ targetType, command, bodyId }) => {
+const buildTargetKey = ({ targetType, missionId, command, bodyId }) => {
     if (targetType === 'mission') {
-        return command ? `mission:${command}` : '';
+        if (missionId) {
+            return `mission:${missionId}`;
+        }
+        return command ? `missioncmd:${command}` : '';
     }
     if (targetType === 'body') {
         return bodyId ? `body:${bodyId}` : '';
@@ -54,8 +60,12 @@ export const buildTargetKeyFromCelestialRow = (row = {}) => {
         return bodyId ? `body:${bodyId}` : '';
     }
     if (explicitType === 'mission') {
+        const missionId = normalizeMissionId(row?.mission_id || row?.missionId);
+        if (missionId) {
+            return `mission:${missionId}`;
+        }
         const command = normalizeText(row?.command);
-        return command ? `mission:${command}` : '';
+        return command ? `missioncmd:${command}` : '';
     }
     if (explicitType === 'satellite') {
         return '';
@@ -66,14 +76,22 @@ export const buildTargetKeyFromCelestialRow = (row = {}) => {
     if (fallbackBodyId) {
         return `body:${fallbackBodyId}`;
     }
+    const fallbackMissionId = normalizeMissionId(row?.mission_id || row?.missionId);
+    if (fallbackMissionId) {
+        return `mission:${fallbackMissionId}`;
+    }
     const fallbackCommand = normalizeText(row?.command);
-    return fallbackCommand ? `mission:${fallbackCommand}` : '';
+    return fallbackCommand ? `missioncmd:${fallbackCommand}` : '';
 };
 
-const isIdentifierOnlyName = ({ name, targetType, command, bodyId }) => {
+const isIdentifierOnlyName = ({ name, targetType, missionId, command, bodyId }) => {
     const normalizedName = normalizeText(name).toLowerCase();
     if (!normalizedName) return true;
     if (targetType === 'mission') {
+        const normalizedMissionId = normalizeMissionId(missionId).toLowerCase();
+        if (normalizedMissionId && normalizedName === normalizedMissionId) {
+            return true;
+        }
         const normalizedCommand = normalizeText(command).toLowerCase();
         return Boolean(normalizedCommand) && normalizedName === normalizedCommand;
     }
@@ -84,9 +102,10 @@ const isIdentifierOnlyName = ({ name, targetType, command, bodyId }) => {
     return false;
 };
 
-const resolveNameFromRows = ({ rows = [], targetType, command, bodyId, targetKey }) => {
+const resolveNameFromRows = ({ rows = [], targetType, missionId, command, bodyId, targetKey }) => {
     const normalizedRows = Array.isArray(rows) ? rows : [];
     const normalizedKey = normalizeText(targetKey);
+    const normalizedMissionId = normalizeMissionId(missionId).toLowerCase();
     const normalizedCommand = normalizeText(command).toLowerCase();
     const normalizedBodyId = normalizeBodyId(bodyId);
 
@@ -94,6 +113,16 @@ const resolveNameFromRows = ({ rows = [], targetType, command, bodyId, targetKey
     if (keyMatch) {
         const keyName = normalizeText(keyMatch?.name || keyMatch?.displayName || keyMatch?.display_name || keyMatch?.target_name);
         if (keyName) return keyName;
+    }
+
+    if (targetType === 'mission' && normalizedMissionId) {
+        const missionById = normalizedRows.find(
+            (row) => normalizeMissionId(row?.mission_id || row?.missionId).toLowerCase() === normalizedMissionId
+        );
+        const missionIdName = normalizeText(
+            missionById?.name || missionById?.displayName || missionById?.display_name || missionById?.target_name
+        );
+        if (missionIdName) return missionIdName;
     }
 
     if (targetType === 'mission' && normalizedCommand) {
@@ -122,7 +151,7 @@ const resolveNameFromRows = ({ rows = [], targetType, command, bodyId, targetKey
 
 export const resolveTargetIdentifier = (trackingState = {}) => {
     const targetType = normalizeTargetType(trackingState);
-    if (targetType === 'mission') return normalizeText(trackingState?.command);
+    if (targetType === 'mission') return normalizeMissionId(trackingState?.mission_id) || normalizeText(trackingState?.command);
     if (targetType === 'body') return normalizeBodyId(trackingState?.body_id);
     return normalizeText(trackingState?.norad_id);
 };
@@ -134,19 +163,20 @@ export const resolveTargetDisplayName = ({
     celestialRows = [],
 } = {}) => {
     const targetType = normalizeTargetType(trackingState);
+    const missionId = normalizeMissionId(trackingState?.mission_id);
     const command = normalizeText(trackingState?.command);
     const bodyId = normalizeBodyId(trackingState?.body_id);
-    const targetKey = buildTargetKey({ targetType, command, bodyId });
+    const targetKey = buildTargetKey({ targetType, missionId, command, bodyId });
 
     const candidates = [
         normalizeText(trackingState?.target_name),
         normalizeText(satelliteDetails?.name),
-        resolveNameFromRows({ rows: celestialRows, targetType, command, bodyId, targetKey }),
-        resolveNameFromRows({ rows: monitoredRows, targetType, command, bodyId, targetKey }),
+        resolveNameFromRows({ rows: celestialRows, targetType, missionId, command, bodyId, targetKey }),
+        resolveNameFromRows({ rows: monitoredRows, targetType, missionId, command, bodyId, targetKey }),
     ].filter(Boolean);
 
     const preferredName = candidates.find(
-        (name) => !isIdentifierOnlyName({ name, targetType, command, bodyId })
+        (name) => !isIdentifierOnlyName({ name, targetType, missionId, command, bodyId })
     );
     if (preferredName) return preferredName;
 
@@ -170,6 +200,7 @@ export const buildTargetKeyFromTrackingState = (trackingState = {}) => {
     if (targetType === 'mission' || targetType === 'body') {
         return buildTargetKeyFromCelestialRow({
             target_type: targetType,
+            mission_id: trackingState?.mission_id,
             command: trackingState?.command,
             body_id: trackingState?.body_id,
             target_key: trackingState?.target_key,
